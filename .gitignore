@@ -27,6 +27,11 @@ htmlcov/
 /catalog.json
 /лаунчер/
 /лаунчер.previous-*/
+/InnoSetup/
+*.exe
+*.msi
+*.msix
+*.zip
 .env
 .env.*
 !.env.example

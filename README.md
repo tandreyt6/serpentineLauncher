@@ -48,8 +48,6 @@ Universal GUI подключён отдельной зависимостью: ф
 
 ## Сборка Windows EXE
 
-Для создания установщика установите Inno Setup 6. Сборщик ищет `ISCC.exe` в PATH и стандартных папках установки. Параметр `--skip-installer` позволяет собрать только portable-папку и ZIP для обновления.
-
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -r requirements-build.txt
 .\.venv\Scripts\python.exe -B Core/build/build.py --prepare-only
@@ -69,10 +67,10 @@ Nuitka создаёт самостоятельную папку `лаунчер`
 ## Публикация релиза
 
 1. Измените `APP_VERSION` в `Core/configuration/settings.py`, используя формат `V1.2.3`, и соберите лаунчер.
-2. В `artifacts/releases` появятся `serpentineLauncher-1.2.3-windows-x64.zip`, его SHA-256 и `serpentineLauncher-1.2.3-windows-x64-setup.exe`. ZIP предназначен для автообновления, Inno Setup — для первой установки.
-3. Создайте стабильный GitHub Release с тегом `v1.2.3`, соответствующим версии сборки. Прикрепите ZIP, Setup и файл SHA-256. Отметьте релиз как Latest; черновики и предварительные релизы не используются для автообновления.
+2. В `artifacts/releases` появятся `serpentineLauncher-1.2.3-windows-x64.zip` и его SHA-256. ZIP предназначен для автообновления. Готовые сборки не хранятся в исходном дереве Git.
+3. Создайте стабильный GitHub Release с тегом `v1.2.3`, соответствующим версии сборки. Прикрепите ZIP и файл SHA-256 как файлы релиза. Отметьте релиз как Latest; черновики и предварительные релизы не используются для автообновления.
 
-ZIP должен содержать всю standalone-сборку и `launcher-update.json`, которые создаёт сборщик. Архив исходников GitHub и Setup не используются вместо ZIP обновления. Для проверки скачивания используется поле `digest` файла релиза из [GitHub Releases API](https://docs.github.com/en/rest/releases/assets). Не публикуйте непроверенную сборку как Latest.
+ZIP должен содержать всю standalone-сборку и `launcher-update.json`, которые создаёт сборщик. Архив исходников GitHub не используется вместо ZIP обновления. Для проверки скачивания используется поле `digest` файла релиза из [GitHub Releases API](https://docs.github.com/en/rest/releases/assets). Не публикуйте непроверенную сборку как Latest.
 
 ## Структура и данные
 
