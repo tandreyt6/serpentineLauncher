@@ -101,6 +101,10 @@
   "settings.panel_preview_close": "Close panel",
   "common.done": "Done",
   "settings.behavior": "Application",
+  "settings.delay_shutdown": "Delay Windows sign-out and shutdown",
+  "settings.shutdown_warning": "Allow delaying Windows shutdown?",
+  "settings.shutdown_warning_text": "While the launcher is running, it may prevent Windows from signing out, restarting or shutting down. You may need to close the launcher yourself or force Windows to continue. Enable this behavior?",
+  "settings.shutdown_reason": "The launcher is configured to delay sign-out. Close it or disable this option in settings.",
   "settings.about": "About",
   "settings.appearance": "Appearance",
   "settings.language": "Language",
@@ -518,5 +522,6 @@
   "updates.later": "Later",
   "updates.close_continue": "Close and continue",
   "updates.task": "Launcher update · %version%",
-  "task.stage.verify": "Verifying files"
+  "task.stage.verify": "Verifying files",
+  "task.stage.updater": "Preparing updater"
 }

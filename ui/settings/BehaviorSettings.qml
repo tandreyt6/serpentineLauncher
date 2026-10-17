@@ -74,6 +74,27 @@ UG.ScrollArea {
                     }
                 }
                 UG.FormRow {
+                    tag: "ui.settings.behaviorsettings.system_shutdown"
+                    Layout.fillWidth: true
+                    textKey: "settings.delay_shutdown"
+                    UG.Switch {
+                        tag: "ui.settings.behaviorsettings.delay_shutdown"
+                        objectName: "settings.delay_shutdown"
+                        Layout.alignment: Qt.AlignRight
+                        displayText: ""
+                        useDisplayText: true
+                        checkable: false
+                        checked: Session.settings.delaySystemShutdown
+                        Accessible.name: Session.text("settings.delay_shutdown")
+                        onClicked: {
+                            if (Session.settings.delaySystemShutdown)
+                                Session.command("setting", "delaySystemShutdown", "false")
+                            else
+                                shutdownDialog.open()
+                        }
+                    }
+                }
+                UG.FormRow {
                     tag: "ui.settings.behaviorsettings.5"
                     Layout.fillWidth: true
                     textKey: "settings.on_launch"
@@ -211,6 +232,23 @@ UG.ScrollArea {
                     }
                 }
             }
+        }
+    }
+    UG.ConfirmationDialog {
+        id: shutdownDialog
+        objectName: "settings.shutdown_warning"
+        tag: "ui.settings.behaviorsettings.shutdown_warning"
+        actions: [
+            { key: "cancel", text_key: "common.cancel" },
+            { key: "accept", text_key: "common.confirm", state_key: "danger" }
+        ]
+        defaultAction: "cancel"
+        cancelAction: "cancel"
+        heading: Session.text("settings.shutdown_warning")
+        message: Session.text("settings.shutdown_warning_text")
+        onActionRequested: action => {
+            if (action === "accept")
+                Session.command("setting", "delaySystemShutdown", "true")
         }
     }
     UG.ConfirmationDialog {

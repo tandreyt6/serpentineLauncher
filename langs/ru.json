@@ -101,6 +101,10 @@
   "settings.panel_preview_close": "Закрыть панель",
   "common.done": "Готово",
   "settings.behavior": "Приложение",
+  "settings.delay_shutdown": "Задерживать выход из Windows и выключение",
+  "settings.shutdown_warning": "Разрешить задержку завершения Windows?",
+  "settings.shutdown_warning_text": "Пока лаунчер работает, он может мешать выходу из учётной записи, перезагрузке или выключению компьютера. Может потребоваться закрыть лаунчер вручную или принудительно продолжить завершение Windows. Включить такое поведение?",
+  "settings.shutdown_reason": "В лаунчере включена задержка выхода из системы. Закройте его или отключите этот параметр в настройках.",
   "settings.about": "О приложении",
   "settings.appearance": "Оформление",
   "settings.language": "Язык",
@@ -518,5 +522,6 @@
   "updates.later": "Потом",
   "updates.close_continue": "Закрыть и продолжить",
   "updates.task": "Обновление лаунчера · %version%",
-  "task.stage.verify": "Проверка файлов"
+  "task.stage.verify": "Проверка файлов",
+  "task.stage.updater": "Подготовка апдейтера"
 }

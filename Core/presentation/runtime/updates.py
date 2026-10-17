@@ -31,6 +31,7 @@ class UpdateController(QObject):
         self._exit_mode = False
         self._exit_download = False
         self.deferred = False
+        self._background_mode = False
         self._finished.connect(self._accept)
         self._assigned.connect(self._task_assigned)
         self._timer = QTimer(self)
@@ -100,6 +101,9 @@ class UpdateController(QObject):
                         if any(item.task_id == task and item.state in ('completed', 'cancelled', 'failed') for item in tasks.snapshots()):
                             raise
                         continue
+                if manager.installable:
+                    cancellation.check()
+                    manager.arm(False)
         except Exception as error:
             result = error
         self._finished.emit(kind, result)
@@ -126,6 +130,7 @@ class UpdateController(QObject):
         self._thread = None
         self._timer.stop()
         if isinstance(result, Exception):
+            self._background_mode = False
             self._state('error', str(result))
             if self._exit_mode:
                 self._core.app.log_error('Launcher update: ' + str(result))
@@ -140,14 +145,27 @@ class UpdateController(QObject):
                 else:
                     self._exit_mode = False
                     self.exitPrepared.emit()
+            elif self._background_mode:
+                if self._release:
+                    self._start('download')
+                else:
+                    self._background_mode = False
         else:
             self._progress = 1.0
             self._state('ready')
             if self._exit_mode:
                 self._exit_mode = False
                 self.exitPrepared.emit()
-            else:
+            elif not self._background_mode:
                 self.installRequested.emit()
+            self._background_mode = False
+
+    def prefetch(self):
+        if self._closing or self.busy or not self.installable:
+            return
+        if self._core.app.get('updates', UpdateManager).prepared is None:
+            self._background_mode = True
+            self._start('check')
 
     def prepare_exit(self, enabled):
         if self._core is None:
@@ -181,3 +199,10 @@ class UpdateController(QObject):
         self._timer.stop()
         if self._thread is not None:
             self._thread.join(15)
+
+    def interrupt(self):
+        self._background_mode = False
+        self._exit_mode = False
+        self._exit_download = False
+        self._cancel.cancel()
+        self._timer.stop()

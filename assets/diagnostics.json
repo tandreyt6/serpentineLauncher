@@ -383,5 +383,7 @@
   "updates.missing_asset": "The release has no compatible Windows update archive.",
   "updates.checksum": "The launcher update checksum or size does not match.",
   "updates.source_mode": "Only the packaged Windows launcher can install updates.",
+  "updates.cancelled": "Launcher update was cancelled for system shutdown.",
+  "updates.updater_start": "The standalone updater could not start.",
   "updates.task_title": "Launcher update · {0}"
 }

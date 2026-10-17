@@ -15,6 +15,8 @@ from Core.presentation.editor.editor_workspace import EditorWorkspace
 from Core.presentation.runtime.updates import UpdateController
 from Core.application.tasks import TaskManager
 from Core.updates.releases import UpdateManager
+from Core.presentation.runtime.system_session import SystemSession
+import os
 
 
 class LifecycleManager(QObject):
@@ -40,6 +42,8 @@ class LifecycleManager(QObject):
         self._update_restart = False
         self._update_exit_ready = False
         self._update_exit_preparing = False
+        self._system_exit = False
+        self._prefetch_scheduled = False
         self.updates = UpdateController(core, self)
         self.updates.installRequested.connect(self.requestUpdate)
         self.updates.exitPrepared.connect(self._update_prepared)
@@ -72,6 +76,32 @@ class LifecycleManager(QObject):
             self._tray.activated.connect(self._activated)
             self._translate()
             self._tray.show()
+        self._system_session = SystemSession(self) if core is not None else None
+        self._prefetch_timer = QTimer(self)
+        self._prefetch_timer.setSingleShot(True)
+        self._prefetch_timer.timeout.connect(self._prefetch_update)
+
+    def _prefetch_update(self):
+        if not self._stopping and not self._system_exit and self._session.settings.get('silentUpdates', True):
+            self.updates.prefetch()
+
+    def prepareSystemExit(self):
+        self._system_exit = True
+        self._prefetch_timer.stop()
+        self._update_timer.stop()
+        self.updates.interrupt()
+        if self._core is not None:
+            self._core.app.get('updates', UpdateManager).abort()
+
+    def cancelSystemExit(self):
+        self._system_exit = False
+        self._pending_exit = False
+        self._update_exit_preparing = False
+        if self._core is not None:
+            self._core.app.get('updates', UpdateManager).resume()
+
+    def systemExit(self):
+        os._exit(0)
 
     @Slot()
     def _translate(self) -> None:
@@ -117,6 +147,9 @@ class LifecycleManager(QObject):
         if self._core is not None:
             window.installEventFilter(self)
         self._timer.stop()
+        if not self._prefetch_scheduled:
+            self._prefetch_scheduled = True
+            self._prefetch_timer.start(5000)
 
     def handle(self, action: str, payload: object) -> object:
         if action == "attach":
@@ -127,7 +160,11 @@ class LifecycleManager(QObject):
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
         if watched is self._window and event.type() == QEvent.Type.Close and not self._stopping:
             event.ignore()
-            if self._session.settings["closeAction"] == "exit" and self._editors is not None and self._editors.windowKeys:
+            updater = self._core.app.get('updates', UpdateManager) if self._core is not None else None
+            if updater is not None and updater.armed and (self._session.settings.get('silentUpdates', True) or self.updates.deferred):
+                self._update_restart = False
+                self._request_update() if self._update_blockers() else self.requestExit()
+            elif self._session.settings["closeAction"] == "exit" and self._editors is not None and self._editors.windowKeys:
                 self._exit_after_editors = True
                 self._window.hide()
             elif self.active_clients() or self._session.settings["closeAction"] == "tray":
@@ -199,7 +236,7 @@ class LifecycleManager(QObject):
 
     @Slot()
     def requestExit(self) -> None:
-        if self._stopping:
+        if self._stopping or self._system_exit:
             return
         if self.active_clients():
             self.apply("hide")
@@ -227,7 +264,11 @@ class LifecycleManager(QObject):
 
     @Slot()
     def requestUpdate(self):
-        if self._stopping or self._core is None:
+        self._update_restart = True
+        self._request_update()
+
+    def _request_update(self):
+        if self._stopping or self._system_exit or self._core is None:
             return
         if self._core.app.get('updates', UpdateManager).prepared is None:
             return
@@ -236,7 +277,6 @@ class LifecycleManager(QObject):
             self.updates.blocked(blockers)
             return
         self._update_requested = True
-        self._update_restart = True
         self._pending_exit = True
         self._update_exit_ready = True
         self._finish_exit()
@@ -274,7 +314,7 @@ class LifecycleManager(QObject):
         blockers = self._update_blockers()
         if not blockers:
             self._update_timer.stop()
-            self.requestUpdate()
+            self._request_update()
         elif monotonic() >= self._update_deadline:
             self._update_timer.stop()
             self.updates.blocked(blockers, self._session.text('updates.close_timeout'))
@@ -300,6 +340,8 @@ class LifecycleManager(QObject):
 
     @Slot()
     def _finish_exit(self) -> None:
+        if self._system_exit:
+            return
         if self._pending_exit and not self._session.dirtyEditors and not self._stopping:
             if self.active_clients():
                 self._pending_exit = False
@@ -325,7 +367,7 @@ class LifecycleManager(QObject):
         try:
             if self._core is not None:
                 updater = self._core.app.get('updates', UpdateManager)
-                if updater.prepared is not None and (self._session.settings.get('silentUpdates', True) or self.updates.deferred or self._update_requested):
+                if not self._system_exit and updater.prepared is not None and (self._session.settings.get('silentUpdates', True) or self.updates.deferred or self._update_requested):
                     try:
                         plan = updater.arm(self._update_restart)
                     except Exception as error:
@@ -333,6 +375,8 @@ class LifecycleManager(QObject):
                             raise
                         self._core.app.log_error('Launcher update: ' + str(error))
                 self._core.close()
+                if plan is not None and not self._system_exit:
+                    updater.commit(plan, self._update_restart)
             self.stopped.emit()
         except Exception as error:
             if plan is not None:
@@ -360,9 +404,12 @@ class LifecycleManager(QObject):
         if self._closed:
             return
         self._closed = True
+        if self._system_session is not None:
+            self._system_session.close()
         self._window_generation += 1
         self._timer.stop()
         self._update_timer.stop()
+        self._prefetch_timer.stop()
         self.updates.close()
         self._session.windowAction.disconnect(self.apply)
         self._session.changed.disconnect(self._finish_exit)

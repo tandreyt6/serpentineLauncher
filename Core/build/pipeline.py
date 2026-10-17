@@ -71,7 +71,7 @@ def prepare_source(source):
     assets = source / 'assets'
     assets.mkdir()
     shutil.copy2(config.APP_ICON, assets / 'icon.ico')
-    for name in ('ui-defaults.json', 'diagnostics.json', 'updater.ps1'):
+    for name in ('ui-defaults.json', 'diagnostics.json'):
         shutil.copy2(PROJECT / 'assets' / name, assets / name)
     shutil.copytree(PROJECT / 'assets/icons', assets / 'icons', ignore=IGNORE)
     (assets / 'locales').mkdir()
@@ -195,6 +195,8 @@ def main():
 
 
 def finalize_release(distribution, work, output, versions):
+    from Core.build.updater import build_updater
+    build_updater(PROJECT, distribution)
     check_clean(distribution)
     if any(distribution.glob('qt6web*.dll')) or any(distribution.glob('qt6quick3d*.dll')):
         raise ValueError('В сборку попали неиспользуемые библиотеки браузера или 3D.')
@@ -234,8 +236,14 @@ def finalize_release(distribution, work, output, versions):
             shutil.copy2(PROJECT / name, distribution / name)
     from Core.updates.package import build_release
     release = build_release(distribution, PROJECT / 'artifacts/releases', config.APP_VERSION)
+    from Core.updates.version import UPDATER_VERSION, UPDATER_EXECUTABLE, updater_asset_name
+    from Core.updates.package import digest
+    updater_asset = release.parent / updater_asset_name(UPDATER_VERSION)
+    shutil.copy2(distribution / UPDATER_EXECUTABLE, updater_asset)
+    updater_asset.with_suffix('.exe.sha256').write_text(digest(updater_asset) + '  ' + updater_asset.name + '\n', encoding='ascii')
     publish(distribution, output)
     print('Архив для GitHub Releases:', release, flush=True)
+    print('Апдейтер для GitHub Releases:', updater_asset, flush=True)
     print('Готово:', output / EXE, flush=True)
     print('Переносите всю папку лаунчера. Настройки появятся только при его использовании.', flush=True)
     print('Отчёт компиляции:', work / 'compilation-report.xml', flush=True)
