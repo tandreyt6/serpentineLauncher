@@ -1,4 +1,4 @@
-# serpentineLauncher
+# Serpentine Launcher
 
 Открытый лаунчер Minecraft для управления сборками, модами и запуском игры. Написан на Python и QML: интерфейс использует PySide6 и Universal GUI, а собственное ядро Core отвечает за установку игры, загрузки и управление клиентами.
 
