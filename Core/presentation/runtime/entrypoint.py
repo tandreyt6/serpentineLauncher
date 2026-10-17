@@ -10,5 +10,3 @@ from universal_gui.contracts import Request
 def main(core: CoreRuntime, instance: InstanceDriver, preview: bool, activation: Event) -> int:
     application, startup = create_loading_application(preview, core, instance if core is None else None, activation)
     return application.run()
-
-

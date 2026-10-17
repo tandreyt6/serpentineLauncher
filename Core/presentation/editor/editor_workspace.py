@@ -566,4 +566,3 @@ class EditorWorkspace(QObject):
         self._pending_close.clear()
         self._close_requests.clear()
         self._buffers.clear()
-

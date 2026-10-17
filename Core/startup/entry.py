@@ -81,5 +81,3 @@ def main(request: CliRequest, instance: InstanceDriver) -> int:
     finally:
         instance.close()
         core.close()
-
-
