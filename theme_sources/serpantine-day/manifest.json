@@ -1,0 +1,698 @@
+{
+  "id": "serpantine-day",
+  "format": 1,
+  "api": "0.1",
+  "extends": "office",
+  "tokens": {
+    "background": "#f2f4f0",
+    "surface": "#ffffff",
+    "foreground": "#1c3028",
+    "muted": "#6c7c73",
+    "accent": "#317c5c",
+    "accentHover": "#d5dfd5",
+    "accentPressed": "#c5d2c5",
+    "accentText": "#1c3028",
+    "border": "#d9e1d9",
+    "focus": "#317c5c",
+    "disabled": "#e5eae5",
+    "disabledText": "#95a097",
+    "fontFamily": "Segoe UI",
+    "fontSize": 14,
+    "titleSize": 22,
+    "sectionSize": 16,
+    "smallSize": 12,
+    "radius": 8,
+    "controlHeight": 30,
+    "duration": 150,
+    "surfaceDuration": 140,
+    "surfaceScale": 1,
+    "windowWidth": 1120,
+    "windowHeight": 740,
+    "minimumWidth": 940,
+    "minimumHeight": 660,
+    "windowRadius": 14,
+    "windowBorderWidth": 1,
+    "titlebarHeight": 32,
+    "captionHover": "#e0e7dd",
+    "windowShadowColor": "#66000000",
+    "buttonBackground": "#e7ede7",
+    "selectedText": "#ffffff",
+    "buttonSegment": "whole",
+    "panelBackground": "#efedf1eb",
+    "surfaceRaised": "#e7ede7",
+    "selection": "#dceee3",
+    "danger": "#b95050",
+    "logWarning": "#8a5900",
+    "railWidth": 48,
+    "panelWidth": 168,
+    "detailsWidth": 264,
+    "cardHeight": 220,
+    "cardArtHeight": 134,
+    "pageMargin": 12,
+    "tabHeight": 26,
+    "tabWidth": 104,
+    "tabMinimumWidth": 72,
+    "tabGap": 2,
+    "tabActionSize": 14,
+    "tabActionInset": 3,
+    "titlebarButtonWidth": 42,
+    "scrollbarTrack": "#e7ede7",
+    "dockTitleBackground": "#e7ede7",
+    "scrollbarWidth": 7,
+    "controlPadding": 12,
+    "cardPadding": 12,
+    "mutedButtonBackground": "#e7ede7",
+    "mutedButtonHover": "#d5dfd5",
+    "mutedButtonPressed": "#c5d2c5",
+    "navigationDuration": 90,
+    "tasksWidth": 320,
+    "dangerText": "#ffffff",
+    "dangerButton": "#c64848",
+    "iconSize": 16,
+    "layoutGap": 12,
+    "rowGap": 8,
+    "smallGap": 6,
+    "cardMinimumWidth": 220,
+    "coreMinimumWidth": 240,
+    "navButtonHeight": 34,
+    "navigationTop": 44,
+    "headerHeight": 34,
+    "footerHeight": 36,
+    "profileRowHeight": 58,
+    "profileActionWidth": 164,
+    "settingsMenuWidth": 164,
+    "controlSlotWidth": 268,
+    "editorMenuWidth": 140,
+    "descriptionEditorHeight": 132,
+    "editorModRowHeight": 46,
+    "editorCoverHeight": 84,
+    "detailsCoverHeight": 64,
+    "dialogPadding": 18,
+    "coreCardHeight": 142,
+    "coreListHeight": 118,
+    "buildListHeight": 76,
+    "iconGap": 8,
+    "smallCardWidth": 180,
+    "largeCardWidth": 280,
+    "largeCardHeight": 280,
+    "largeCardArtHeight": 188,
+    "navigationIconSize": 24,
+    "tabFontSize": 13,
+    "modDropHeight": 96,
+    "warningText": "#2c2412",
+    "controlWidth": 110,
+    "navigationExpandedWidth": 168,
+    "navigationCollapsedWidth": 48,
+    "cardSmallWidth": 180,
+    "cardSmallHeight": 180,
+    "collectionRowHeight": 76,
+    "captionWidth": 210,
+    "formNarrowWidth": 540,
+    "operationActionWidth": 28,
+    "progressHeight": 3,
+    "switchWidth": 44,
+    "switchHeight": 24,
+    "editorPadding": 10,
+    "splitButtonGap": 3,
+    "splitButtonInnerRadius": 0,
+    "typography": {
+      "body": {
+        "textSize": 14,
+        "textColor": "#1c3028"
+      },
+      "caption": {
+        "textSize": 12,
+        "textColor": "#6c7c73"
+      },
+      "heading": {
+        "textSize": 16,
+        "textColor": "#1c3028"
+      },
+      "button": {
+        "textSize": 14,
+        "textColor": "#1c3028"
+      },
+      "button-caption": {
+        "textSize": 12,
+        "textColor": "#6c7c73"
+      }
+    },
+    "comboIndicatorKey": "assets/chevron-down.png",
+    "searchIconKey": "assets/search.png",
+    "clearIconKey": "assets/close.png",
+    "previousIconKey": "assets/back.png",
+    "nextIconKey": "assets/next.png",
+    "calendarIconKey": "assets/calendar.png",
+    "backIconKey": "assets/back.png",
+    "refreshIconKey": "assets/refresh.png",
+    "folderIconKey": "assets/folder.png",
+    "fileIconKey": "assets/file.png",
+    "tabCloseIconKey": "assets/close.png",
+    "tabDetachIconKey": "assets/detach.png",
+    "closeIconKey": "assets/close.png",
+    "minimizeIconKey": "assets/minimize.png",
+    "maximizeIconKey": "assets/maximize.png",
+    "restoreIconKey": "assets/maximize.png",
+    "secondaryIconKey": "assets/chevron-down.png",
+    "expandIconKey": "assets/chevron-down.png",
+    "toggleIconKey": "assets/menu.png",
+    "navigationIconInset": 6,
+    "navigationTextInset": 38,
+    "optionHeight": 32,
+    "optionPadding": 4,
+    "optionTextColor": "#1c3028",
+    "optionSelectedTextColor": "#1c3028",
+    "optionHoveredTextColor": "#1c3028",
+    "optionSecondaryTextColor": "#6c7c73",
+    "optionBackground": "transparent",
+    "optionHoverBackground": "#d5dfd5",
+    "optionSelectedBackground": "#dbe8dd",
+    "optionPressedBackground": "#c5d2c5",
+    "optionMarkerColor": "#317c5c",
+    "optionRadius": 6,
+    "optionPopupPadding": 4,
+    "optionSpacing": 2,
+    "optionCheckGlyph": "",
+    "dropHighlight": "#dceee3",
+    "tinyCardWidth": 160,
+    "mediumCardWidth": 220,
+    "hugeCardWidth": 340
+  },
+  "rules": [
+    {
+      "tag": "ui.files.explorer.menu",
+      "values": {
+        "popupWidth": 200,
+        "menuGroupHeight": 0,
+        "optionSpacing": 0
+      }
+    },
+    {
+      "tag": "editor.mod_project.version.game",
+      "state": "selected",
+      "values": {
+        "surface": "#d0eee1",
+        "border": "#2f8765"
+      }
+    },
+    {
+      "tag": "ui.build.context",
+      "values": {
+        "popupWidth": 240,
+        "menuGroupHeight": 0,
+        "optionSpacing": 0
+      }
+    },
+    {
+      "tag": "ui.build.launch.menu",
+      "values": {
+        "popupWidth": 240,
+        "menuGroupHeight": 0,
+        "optionSpacing": 0
+      }
+    },
+    {
+      "tag": "ui.build.launch.menu.submenu.1",
+      "values": {
+        "popupWidth": 240,
+        "menuGroupHeight": 0,
+        "optionSpacing": 0
+      }
+    },
+    {
+      "tag": "tabs.close",
+      "visual": "visuals/Button.qml",
+      "values": {
+        "tabIconName": "close",
+        "iconSize": 11,
+        "controlPadding": 0,
+        "radius": 3
+      }
+    },
+    {
+      "tag": "tabs.detach",
+      "visual": "visuals/Button.qml",
+      "values": {
+        "tabIconName": "detach",
+        "iconSize": 11,
+        "controlPadding": 0,
+        "radius": 3
+      }
+    },
+    {
+      "type": "Button",
+      "visual": "visuals/Button.qml"
+    },
+    {
+      "type": "ToolButton",
+      "visual": "visuals/Button.qml"
+    },
+    {
+      "type": "PanelButton",
+      "visual": "visuals/Button.qml"
+    },
+    {
+      "type": "Label",
+      "values": {
+        "textColor": "#1c3028"
+      }
+    },
+    {
+      "type": "UiText",
+      "values": {
+        "textColor": "#1c3028"
+      }
+    },
+    {
+      "type": "Button",
+      "visual": "visuals/Button.qml"
+    },
+    {
+      "type": "Button",
+      "state": "primary",
+      "values": {
+        "buttonBackground": "#317c5c",
+        "accentHover": "#3c8d6b",
+        "accentPressed": "#245f45",
+        "accentText": "#ffffff",
+        "selectedText": "#ffffff"
+      }
+    },
+    {
+      "type": "Button",
+      "state": "warning",
+      "values": {
+        "buttonBackground": "#e7bf5c",
+        "accentHover": "#f0ce7a",
+        "accentPressed": "#cf9f3e",
+        "accentText": "#2c2412"
+      }
+    },
+    {
+      "type": "Button",
+      "state": "danger",
+      "values": {
+        "buttonBackground": "#c64848",
+        "accentHover": "#db5959",
+        "accentPressed": "#a93636",
+        "accentText": "#ffffff"
+      }
+    },
+    {
+      "type": "Button",
+      "state": "selected",
+      "values": {
+        "buttonBackground": "#dceee3",
+        "accentHover": "#d5dfd5",
+        "accentText": "#1c3028"
+      }
+    },
+    {
+      "type": "ToolButton",
+      "visual": "visuals/Button.qml"
+    },
+    {
+      "type": "ToolButton",
+      "state": "primary",
+      "values": {
+        "buttonBackground": "#317c5c",
+        "accentHover": "#3c8d6b",
+        "accentPressed": "#245f45",
+        "accentText": "#ffffff",
+        "selectedText": "#ffffff"
+      }
+    },
+    {
+      "type": "ToolButton",
+      "state": "warning",
+      "values": {
+        "buttonBackground": "#e7bf5c",
+        "accentHover": "#f0ce7a",
+        "accentPressed": "#cf9f3e",
+        "accentText": "#2c2412"
+      }
+    },
+    {
+      "type": "ToolButton",
+      "state": "danger",
+      "values": {
+        "buttonBackground": "#c64848",
+        "accentHover": "#db5959",
+        "accentPressed": "#a93636",
+        "accentText": "#ffffff"
+      }
+    },
+    {
+      "type": "ToolButton",
+      "state": "selected",
+      "values": {
+        "buttonBackground": "#dceee3",
+        "accentHover": "#d5dfd5",
+        "accentText": "#1c3028"
+      }
+    },
+    {
+      "type": "PanelButton",
+      "visual": "visuals/Button.qml"
+    },
+    {
+      "type": "PanelButton",
+      "state": "primary",
+      "values": {
+        "buttonBackground": "#317c5c",
+        "accentHover": "#3c8d6b",
+        "accentPressed": "#245f45",
+        "accentText": "#ffffff",
+        "selectedText": "#ffffff"
+      }
+    },
+    {
+      "type": "PanelButton",
+      "state": "warning",
+      "values": {
+        "buttonBackground": "#e7bf5c",
+        "accentHover": "#f0ce7a",
+        "accentPressed": "#cf9f3e",
+        "accentText": "#2c2412"
+      }
+    },
+    {
+      "type": "PanelButton",
+      "state": "danger",
+      "values": {
+        "buttonBackground": "#c64848",
+        "accentHover": "#db5959",
+        "accentPressed": "#a93636",
+        "accentText": "#ffffff"
+      }
+    },
+    {
+      "type": "PanelButton",
+      "state": "selected",
+      "values": {
+        "buttonBackground": "#dceee3",
+        "accentHover": "#d5dfd5",
+        "accentText": "#1c3028"
+      }
+    },
+    {
+      "type": "ProgressButton",
+      "visual": "visuals/Button.qml"
+    },
+    {
+      "type": "ProgressButton",
+      "state": "primary",
+      "values": {
+        "buttonBackground": "#317c5c",
+        "accentHover": "#3c8d6b",
+        "accentPressed": "#245f45",
+        "accentText": "#ffffff",
+        "selectedText": "#ffffff"
+      }
+    },
+    {
+      "type": "ProgressButton",
+      "state": "warning",
+      "values": {
+        "buttonBackground": "#e7bf5c",
+        "accentHover": "#f0ce7a",
+        "accentPressed": "#cf9f3e",
+        "accentText": "#2c2412"
+      }
+    },
+    {
+      "type": "ProgressButton",
+      "state": "danger",
+      "values": {
+        "buttonBackground": "#c64848",
+        "accentHover": "#db5959",
+        "accentPressed": "#a93636",
+        "accentText": "#ffffff"
+      }
+    },
+    {
+      "type": "ProgressButton",
+      "state": "selected",
+      "values": {
+        "buttonBackground": "#dceee3",
+        "accentHover": "#d5dfd5",
+        "accentText": "#1c3028"
+      }
+    },
+    {
+      "type": "NavigationButton",
+      "visual": "visuals/Button.qml"
+    },
+    {
+      "type": "NavigationButton",
+      "state": "primary",
+      "values": {
+        "buttonBackground": "#317c5c",
+        "accentHover": "#3c8d6b",
+        "accentPressed": "#245f45",
+        "accentText": "#ffffff",
+        "selectedText": "#ffffff"
+      }
+    },
+    {
+      "type": "NavigationButton",
+      "state": "warning",
+      "values": {
+        "buttonBackground": "#e7bf5c",
+        "accentHover": "#f0ce7a",
+        "accentPressed": "#cf9f3e",
+        "accentText": "#2c2412"
+      }
+    },
+    {
+      "type": "NavigationButton",
+      "state": "danger",
+      "values": {
+        "buttonBackground": "#c64848",
+        "accentHover": "#db5959",
+        "accentPressed": "#a93636",
+        "accentText": "#ffffff"
+      }
+    },
+    {
+      "type": "NavigationButton",
+      "state": "selected",
+      "values": {
+        "buttonBackground": "#dceee3",
+        "accentHover": "#d5dfd5",
+        "accentText": "#1c3028"
+      }
+    },
+    {
+      "type": "Frame",
+      "state": "selected",
+      "values": {
+        "border": "#317c5c"
+      }
+    },
+    {
+      "type": "Card",
+      "state": "selected",
+      "values": {
+        "border": "#317c5c"
+      }
+    },
+    {
+      "type": "NavigationButton",
+      "values": {
+        "controlHeight": 34
+      }
+    },
+    {
+      "tag": "ui.build.badge",
+      "values": {
+        "surface": "#f2f4f0"
+      }
+    },
+    {
+      "tag": "ui.build.card.title",
+      "values": {
+        "textSize": 16
+      }
+    },
+    {
+      "tag": "ui.navigation",
+      "values": {
+        "surface": "#efedf1eb",
+        "radius": 0,
+        "borderWidth": 0
+      }
+    },
+    {
+      "type": "FormRow",
+      "visual": "visuals/Empty.qml"
+    },
+    {
+      "type": "CollectionArea",
+      "visual": "visuals/Empty.qml"
+    },
+    {
+      "type": "Widget",
+      "visual": "visuals/Empty.qml"
+    },
+    {
+      "type": "SplitButton",
+      "visual": "visuals/Empty.qml"
+    },
+    {
+      "type": "NavigationButton",
+      "visual": "visuals/Button.qml"
+    },
+    {
+      "type": "ProgressButton",
+      "visual": "visuals/Button.qml"
+    },
+    {
+      "type": "NavigationButton",
+      "state": "selected",
+      "values": {
+        "accent": "#317c5c"
+      }
+    },
+    {
+      "type": "TextField",
+      "values": {
+        "controlPadding": 4
+      }
+    },
+    {
+      "type": "ProgressButton",
+      "values": {
+        "controlPadding": 4
+      }
+    },
+    {
+      "type": "OperationRow",
+      "values": {
+        "controlPadding": 6
+      }
+    },
+    {
+      "type": "ImageSurface",
+      "values": {
+        "borderWidth": 0,
+        "surface": "#e7ede7"
+      }
+    },
+    {
+      "type": "Card",
+      "values": {
+        "spacing": 6
+      }
+    },
+    {
+      "type": "Button",
+      "values": {
+        "focusWidth": 0
+      }
+    },
+    {
+      "type": "ToolButton",
+      "values": {
+        "focusWidth": 0
+      }
+    },
+    {
+      "type": "PanelButton",
+      "values": {
+        "focusWidth": 0
+      }
+    },
+    {
+      "type": "ProgressButton",
+      "values": {
+        "focusWidth": 0
+      }
+    },
+    {
+      "type": "NavigationButton",
+      "values": {
+        "focusWidth": 0
+      }
+    },
+    {
+      "type": "MenuAction",
+      "values": {
+        "focusWidth": 0
+      }
+    },
+    {
+      "type": "Slider",
+      "values": {
+        "focusWidth": 0
+      }
+    },
+    {
+      "type": "CheckBox",
+      "values": {
+        "focusWidth": 1,
+        "focus": "#d9e1d9"
+      }
+    },
+    {
+      "type": "Switch",
+      "values": {
+        "focusWidth": 1,
+        "focus": "#d9e1d9"
+      }
+    },
+    {
+      "type": "RadioButton",
+      "values": {
+        "focusWidth": 1,
+        "focus": "#d9e1d9"
+      }
+    },
+    {
+      "type": "ProgressBar",
+      "visual": "visuals/ProgressBar.qml"
+    },
+    {
+      "tag": "ui.editor.editorbuild.2.expand",
+      "values": {
+        "controlPadding": 4
+      }
+    },
+    {
+      "tag": "ui.editor.editorbuild.2.menu",
+      "values": {
+        "popupWidth": 240,
+        "menuGroupHeight": 0,
+        "optionSpacing": 0
+      }
+    },
+    {
+      "type": "SplitButton",
+      "state": "primary",
+      "values": {
+        "accentText": "#ffffff"
+      }
+    },
+    {
+      "type": "SplitButton",
+      "state": "warning",
+      "values": {
+        "accentText": "#2c2412"
+      }
+    },
+    {
+      "type": "SplitButton",
+      "state": "danger",
+      "values": {
+        "accentText": "#ffffff"
+      }
+    },
+    {
+      "type": "SplitButton",
+      "state": "selected",
+      "values": {
+        "accentText": "#1c3028"
+      }
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+module Launcher
+Navigation 1.0 Navigation.qml
+ShortcutHost 1.0 ShortcutHost.qml
+LaunchRequest 1.0 LaunchRequest.qml
+TextFindBar 1.0 TextFindBar.qml
+BuildActions 1.0 BuildActions.qml
+StepSlider 1.0 StepSlider.qml
+ContextMenu 1.0 ContextMenu.qml
+EdgeSwapMotion 1.0 EdgeSwapMotion.qml
+ToolTipPolicy 1.0 ToolTipPolicy.qml
+ThemeBackground 1.0 ThemeBackground.qml
+LoadingIndicator 1.0 LoadingIndicator.qml
+DeferredPopup 1.0 DeferredPopup.qml
+LazyPage 1.0 LazyPage.qml
+TaskErrorIndicator 1.0 TaskErrorIndicator.qml
