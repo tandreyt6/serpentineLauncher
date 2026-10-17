@@ -1,4 +1,4 @@
-UPDATER_VERSION = '1.0.0'
+UPDATER_VERSION = '1.1.0'
 UPDATER_EXECUTABLE = 'SerpentineUpdater.exe'
 
 

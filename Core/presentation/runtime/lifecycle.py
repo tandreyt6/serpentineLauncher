@@ -44,9 +44,13 @@ class LifecycleManager(QObject):
         self._update_exit_preparing = False
         self._system_exit = False
         self._prefetch_scheduled = False
+        self._background_restart = False
+        self._background_update_pending = False
+        self._resume_window = None
         self.updates = UpdateController(core, self)
         self.updates.installRequested.connect(self.requestUpdate)
         self.updates.exitPrepared.connect(self._update_prepared)
+        self.updates.backgroundReady.connect(self._background_ready)
         self._update_timer = QTimer(self)
         self._update_timer.setInterval(100)
         self._update_timer.timeout.connect(self._wait_update)
@@ -58,6 +62,8 @@ class LifecycleManager(QObject):
         self._timer.start()
         session.windowAction.connect(self.apply)
         session.changed.connect(self._finish_exit)
+        session.changed.connect(self._try_background_update)
+        session.changed.connect(self._sync_system_policy)
         session.localeChanged.connect(self._translate)
         if editors is not None:
             editors.structureChanged.connect(self._editors_changed)
@@ -80,10 +86,39 @@ class LifecycleManager(QObject):
         self._prefetch_timer = QTimer(self)
         self._prefetch_timer.setSingleShot(True)
         self._prefetch_timer.timeout.connect(self._prefetch_update)
+        self._sync_system_policy()
+
+    def _sync_system_policy(self):
+        if self._core is not None:
+            self._core.app.get('updates', UpdateManager).configure_policy(
+                self._session.settings.get('delaySystemShutdown', False), self._session.text('settings.shutdown_reason'))
 
     def _prefetch_update(self):
         if not self._stopping and not self._system_exit and self._session.settings.get('silentUpdates', True):
             self.updates.prefetch()
+
+    def _background_ready(self):
+        self._background_update_pending = True
+        self._try_background_update()
+
+    def _try_background_update(self):
+        if not self._background_update_pending or self._system_exit or self._stopping or not self._session.settings.get('silentUpdates', True):
+            return
+        if any(key != 'updates.blocker.clients' for key in self._update_blockers()) or self._editors is not None and self._editors.windowKeys:
+            return
+        if any(client.state in ('starting', 'closing') for client in self._core.app.get('launch', LaunchManager).snapshots()):
+            return
+        self._attach()
+        if self._window is None:
+            return
+        from Core.presentation.runtime.quiet_resume import capture
+        self._resume_window = capture(self._window, self._session.currentPage)
+        self._background_restart = True
+        self._update_requested = True
+        self._update_restart = True
+        self._update_exit_ready = True
+        self._pending_exit = True
+        self._finish_exit()
 
     def prepareSystemExit(self):
         self._system_exit = True
@@ -343,7 +378,7 @@ class LifecycleManager(QObject):
         if self._system_exit:
             return
         if self._pending_exit and not self._session.dirtyEditors and not self._stopping:
-            if self.active_clients():
+            if self.active_clients() and not self._background_restart:
                 self._pending_exit = False
                 if self._update_requested:
                     self.updates.blocked(self._update_blockers())
@@ -364,22 +399,43 @@ class LifecycleManager(QObject):
 
     def _stop_core(self) -> None:
         plan = None
+        committed = False
+        detached = False
         try:
             if self._core is not None:
                 updater = self._core.app.get('updates', UpdateManager)
                 if not self._system_exit and updater.prepared is not None and (self._session.settings.get('silentUpdates', True) or self.updates.deferred or self._update_requested):
                     try:
                         plan = updater.arm(self._update_restart)
+                        if self._background_restart:
+                            launch = self._core.app.get('launch', LaunchManager)
+                            clients = launch.export_clients(updater._process.pid)
+                            updater.handoff(plan, clients, self._resume_window)
+                            updater.commit(plan, True)
+                            committed = True
+                            launch.detach_clients()
+                            detached = True
                     except Exception as error:
                         if self._update_requested:
                             raise
                         self._core.app.log_error('Launcher update: ' + str(error))
                 self._core.close()
-                if plan is not None and not self._system_exit:
+                if plan is not None and not committed and not self._system_exit:
                     updater.commit(plan, self._update_restart)
             self.stopped.emit()
         except Exception as error:
+            if committed and detached:
+                try:
+                    self._core.app.log_error('Launcher shutdown after client handoff: ' + str(error))
+                finally:
+                    os._exit(0)
+                return
             if plan is not None:
+                if self._background_restart:
+                    try:
+                        updater.release_handoff(plan)
+                    except Exception as release_error:
+                        self._core.app.log_error('Launcher client handoff cancellation: ' + str(release_error))
                 try:
                     updater.disarm(plan)
                 except OSError as cancellation_error:
@@ -388,13 +444,23 @@ class LifecycleManager(QObject):
 
     @Slot(str)
     def _shutdown_failed(self, message: str) -> None:
+        background = self._background_restart
         self._stopping = False
         self._pending_exit = False
         self._update_requested = False
         self._update_restart = False
+        self._background_restart = False
+        self._background_update_pending = False
         self._session.resumeUpdates()
-        self.show()
-        self._session.notice.emit(message)
+        if background:
+            from Core.presentation.runtime.quiet_resume import restore
+            if self._window is not None and self._resume_window is not None:
+                restore(self._window, self._resume_window)
+            self.updates._state('error', message)
+            self._core.app.log_error('Background launcher update: ' + message)
+        else:
+            self.show()
+            self._session.notice.emit(message)
 
     @Slot()
     def _quit(self) -> None:
@@ -413,6 +479,8 @@ class LifecycleManager(QObject):
         self.updates.close()
         self._session.windowAction.disconnect(self.apply)
         self._session.changed.disconnect(self._finish_exit)
+        self._session.changed.disconnect(self._try_background_update)
+        self._session.changed.disconnect(self._sync_system_policy)
         self._session.localeChanged.disconnect(self._translate)
         if self._editors is not None:
             self._editors.structureChanged.disconnect(self._editors_changed)

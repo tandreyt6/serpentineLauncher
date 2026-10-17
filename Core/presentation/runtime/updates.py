@@ -13,6 +13,7 @@ class UpdateController(QObject):
     dialogRequested = Signal()
     installRequested = Signal()
     exitPrepared = Signal()
+    backgroundReady = Signal()
     _finished = Signal(str, object)
     _assigned = Signal(str)
 
@@ -86,7 +87,7 @@ class UpdateController(QObject):
                 result = manager.check(cancellation)
             else:
                 tasks = self._core.app.get('tasks', TaskManager)
-                task = manager.submit(self._release)
+                task = manager.submit(self._release, background=self._background_mode or self._exit_mode)
                 self._assigned.emit(task)
                 while True:
                     try:
@@ -158,6 +159,8 @@ class UpdateController(QObject):
                 self.exitPrepared.emit()
             elif not self._background_mode:
                 self.installRequested.emit()
+            else:
+                self.backgroundReady.emit()
             self._background_mode = False
 
     def prefetch(self):

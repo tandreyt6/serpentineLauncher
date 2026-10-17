@@ -72,6 +72,8 @@ def prepare_backend(core, preview, factory, instance, activation, selected, path
                 tasks.wait(task)
             finally:
                 tasks.release(task)
+            from Core.updates.resume import adopt
+            adopt(backend)
             if instance is not None:
                 from Core.cli.service import CliService
                 instance.start(CliService(backend.app, activation).handle)
@@ -505,6 +507,13 @@ class LauncherStartup(QObject):
             self._phase = 'shown'
             self.mark('boot-finished')
             self.changed.emit()
+            from Core.updates import resume
+            if resume.state is not None:
+                from Core.presentation.runtime.quiet_resume import restore
+                window = self.app.runtime.router.request(Request('windows', 'instance', 'main'))
+                restore(window)
+                self.session.command('navigate', resume.state['window'].get('page', 'builds'))
+                resume.acknowledge()
 
     def handle(self, action, payload):
         raise ValueError(action)
@@ -582,7 +591,12 @@ def create_loading_application(preview=False, core=None, instance=None, activati
         runtime.engine.rootContext().setContextProperty('UiDefaults', config.UI_STYLE_DEFAULTS)
         runtime.engine.rootContext().setContextProperty('UiDiagnostics', messages())
         boot.attach(app)
-        app.open_window('main')
+        from Core.updates import resume
+        if resume.state is not None and not preview:
+            from Core.presentation.runtime.quiet_resume import open_quiet
+            open_quiet(app)
+        else:
+            app.open_window('main')
         runtime.router.request(Request('windows', 'instance', 'main')).frameSwapped.connect(boot.first_frame)
         return app, boot
     except Exception:

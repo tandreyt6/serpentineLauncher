@@ -7,7 +7,8 @@ import Launcher
 
 UG.PopupPanel {
     id: dialog
-    height: Math.min(contentItem.implicitHeight + topPadding + bottomPadding, parent ? parent.height : Style.value(dialog.appearance, "createBuildDialogHeight"))
+    parent: QC.Overlay.overlay
+    height: Math.min(contentItem.implicitHeight + topPadding + bottomPadding, Math.max(0, parent ? parent.height - 2 * padding : Style.value(dialog.appearance, "createBuildDialogHeight")))
     tag: "ui.dialogs.createbuilddialog.1"
     objectName: "dialog.createBuild"
     property bool idEdited: false
@@ -54,7 +55,7 @@ UG.PopupPanel {
     modal: true
     focus: true
     anchors.centerIn: QC.Overlay.overlay
-    width: Style.value(dialog.appearance, "createBuildDialogWidth")
+    width: Math.min(Style.value(dialog.appearance, "createBuildDialogWidth"), Math.max(0, parent ? parent.width - 2 * padding : Style.value(dialog.appearance, "createBuildDialogWidth")))
     padding: dialog.appearance.dialogPadding
     closePolicy: QC.Popup.CloseOnEscape
     background: UG.Frame {

@@ -173,6 +173,9 @@ class WindowsApi:
         self._declare(self.kernel.TerminateProcess, (wintypes.HANDLE, wintypes.UINT), wintypes.BOOL)
         self._declare(self.kernel.WaitForSingleObject, (wintypes.HANDLE, wintypes.DWORD), wintypes.DWORD)
         self._declare(self.kernel.GetExitCodeProcess, (wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD)), wintypes.BOOL)
+        self._declare(self.kernel.GetCurrentProcess, (), wintypes.HANDLE)
+        self._declare(self.kernel.OpenProcess, (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD), wintypes.HANDLE)
+        self._declare(self.kernel.DuplicateHandle, (wintypes.HANDLE, wintypes.HANDLE, wintypes.HANDLE, ctypes.POINTER(wintypes.HANDLE), wintypes.DWORD, wintypes.BOOL, wintypes.DWORD), wintypes.BOOL)
         self._declare(self.user.EnumWindows, (self.window_callback, wintypes.LPARAM), wintypes.BOOL)
         self._declare(self.user.GetWindowThreadProcessId, (wintypes.HWND, ctypes.POINTER(wintypes.DWORD)), wintypes.DWORD)
         self._declare(self.user.PostMessageW, (wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM), wintypes.BOOL)
@@ -195,6 +198,7 @@ class WindowsManagedProcess:
         self._policy = policy
         self._exit_code: int | None = None
         self._disposed = False
+        self.detached = False
         self._lock = threading.RLock()
 
     @property
@@ -220,6 +224,8 @@ class WindowsManagedProcess:
     def wait(self, timeout: float | None = None) -> int:
         deadline = None if timeout is None else time.monotonic() + max(0.0, timeout)
         while True:
+            if self.detached:
+                return 0
             code = self.poll()
             if code is not None:
                 return code
@@ -273,6 +279,11 @@ class WindowsManagedProcess:
         with self._lock:
             if self._disposed:
                 return
+            if self.detached:
+                self._api.kernel.CloseHandle(self._process)
+                self._api.kernel.CloseHandle(self._job)
+                self._disposed = True
+                return
             self.kill()
             try:
                 self.wait(self._policy.cleanup_timeout_seconds)
@@ -280,6 +291,42 @@ class WindowsManagedProcess:
                 self._api.kernel.CloseHandle(self._process)
                 self._api.kernel.CloseHandle(self._job)
                 self._disposed = True
+
+    def duplicate(self, target_pid):
+        with self._lock:
+            if self._disposed or self.detached or self.poll() is not None:
+                raise RuntimeError(diagnostic('updates.client_transfer'))
+            kernel = self._api.kernel
+            target = kernel.OpenProcess(0x0040, False, target_pid)
+            self._api.checked(target)
+            duplicated = []
+            try:
+                for handle in (self._process, self._job):
+                    output = wintypes.HANDLE()
+                    self._api.checked(kernel.DuplicateHandle(kernel.GetCurrentProcess(), handle, target, ctypes.byref(output), 0, False, 2))
+                    duplicated.append(output.value)
+            finally:
+                kernel.CloseHandle(target)
+            return dict(pid=self.pid, process=duplicated[0], job=duplicated[1])
+
+    @classmethod
+    def adopt(cls, api, source_pid, values, policy=ProcessPolicy()):
+        kernel = api.kernel
+        source = kernel.OpenProcess(0x0040, False, source_pid)
+        api.checked(source)
+        handles = []
+        try:
+            for name in ('process', 'job'):
+                output = wintypes.HANDLE()
+                api.checked(kernel.DuplicateHandle(source, values[name], kernel.GetCurrentProcess(), ctypes.byref(output), 0, False, 2))
+                handles.append(output.value)
+        except BaseException:
+            for handle in handles:
+                kernel.CloseHandle(handle)
+            raise
+        finally:
+            kernel.CloseHandle(source)
+        return cls(api, values['pid'], handles[0], handles[1], policy)
 
 
 class WindowsProcessAdapter:

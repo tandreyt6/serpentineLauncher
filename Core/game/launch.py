@@ -1,7 +1,7 @@
 from Core.application.diagnostics import diagnostic
 import re
 
-from dataclasses import replace
+from dataclasses import asdict, replace
 from datetime import datetime
 from pathlib import Path
 from threading import RLock, Thread, current_thread
@@ -79,6 +79,7 @@ class LaunchManager:
         self._clients: dict[str, ClientSnapshot] = {}
         self._processes: dict[str, ManagedProcess] = {}
         self._monitors: dict[str, Thread] = {}
+        self._native_paths = {}
         self._closed = False
 
     def submit(self, request: LaunchRequest) -> str:
@@ -108,6 +109,7 @@ class LaunchManager:
                 raise CoreError(diagnostic('launch.launch.manager.closed.before.process.ownership'))
             self._processes[key] = process
             self._monitors[key] = monitor
+            self._native_paths[key] = native_relative_path
             current = self._clients.get(key, ClientSnapshot(build_id, "starting"))
             self._set(replace(current, state="running", pid=process.pid, exit_code=None, error=""))
         monitor.start()
@@ -120,6 +122,9 @@ class LaunchManager:
         except Exception as failure:
             error = str(failure)
         finally:
+            if getattr(process, 'detached', False):
+                process.dispose()
+                return
             try:
                 process.dispose()
                 self._app.get("files", FileManager).remove_directory(native_relative_path)
@@ -128,6 +133,7 @@ class LaunchManager:
             with self._lock:
                 self._processes.pop(build_id.casefold(), None)
                 self._monitors.pop(build_id.casefold(), None)
+                self._native_paths.pop(build_id.casefold(), None)
                 current = self._clients[build_id.casefold()]
                 self._set(replace(current, state="failed" if error else "exited", pid=process.pid, exit_code=exit_code, error=error))
 
@@ -171,6 +177,46 @@ class LaunchManager:
     def has_active_clients(self) -> bool:
         with self._lock:
             return any(client.state in ("starting", "running", "closing") for client in self._clients.values())
+
+    def export_clients(self, target_pid):
+        with self._lock:
+            if any(item.state != 'running' for item in self._clients.values() if item.state in ('starting', 'running', 'closing')):
+                raise CoreError(diagnostic('updates.client_transfer'))
+            result = []
+            for key, process in self._processes.items():
+                values = process.duplicate(target_pid)
+                result.append(dict(snapshot=asdict(self._clients[key]), handles=values, natives=self._native_paths[key]))
+            return result
+
+    def detach_clients(self):
+        with self._lock:
+            self._closed = True
+            for process in self._processes.values():
+                process.detached = True
+            self._processes.clear()
+            self._clients.clear()
+            self._native_paths.clear()
+
+    def adopt_clients(self, source_pid, clients):
+        from Core.game.processes import WindowsApi, WindowsManagedProcess
+        api = WindowsApi()
+        adopted = []
+        try:
+            for item in clients:
+                snapshot = ClientSnapshot(**item['snapshot'])
+                safe_identifier(snapshot.build_id)
+                expected = f'{self._config.builds_directory}/{snapshot.build_id}/{self._config.build_runtime_directory}/{self._config.natives_directory}/'
+                if not item['natives'].startswith(expected) or '..' in item['natives'].split('/'):
+                    raise CoreError(diagnostic('updates.client_transfer'))
+                process = WindowsManagedProcess.adopt(api, source_pid, item['handles'])
+                adopted.append(process)
+                self._clients[snapshot.build_id.casefold()] = snapshot
+                self.started(snapshot.build_id, process, item['natives'])
+        except BaseException:
+            for process in adopted:
+                process.detached = True
+                process.dispose()
+            raise
 
     def close(self, force: bool = False) -> None:
         with self._lock:

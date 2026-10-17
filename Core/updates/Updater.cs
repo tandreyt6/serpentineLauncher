@@ -17,11 +17,21 @@ internal sealed class UpdateWindow : Form
 {
     internal static volatile bool Ending;
     internal static EventWaitHandle Abort;
+    internal static EventWaitHandle Block;
+    internal static string Reason;
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern bool ShutdownBlockReasonCreate(IntPtr window, string reason);
+    [DllImport("user32.dll")] private static extern bool ShutdownBlockReasonDestroy(IntPtr window);
     protected override void SetVisibleCore(bool value) { base.SetVisibleCore(false); }
     protected override void WndProc(ref Message message)
     {
         if (message.Msg == 0x11)
         {
+            if (Block != null && Block.WaitOne(0) && (message.LParam.ToInt64() & 0x40000001) == 0)
+            {
+                ShutdownBlockReasonCreate(Handle, Reason);
+                message.Result = IntPtr.Zero;
+                return;
+            }
             Ending = true;
             if (Abort != null) Abort.Set();
             message.Result = new IntPtr(1);
@@ -29,6 +39,7 @@ internal sealed class UpdateWindow : Form
         }
         if (message.Msg == 0x16)
         {
+            ShutdownBlockReasonDestroy(Handle);
             if (message.WParam != IntPtr.Zero) Environment.Exit(0);
             message.Result = IntPtr.Zero;
             return;
@@ -52,8 +63,17 @@ internal static class Updater
     private static readonly HashSet<string> Existed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
     private static bool Installing;
     private static int Result;
+    private static Dictionary<string, object> Resume;
+    private static bool ParentExited;
+    private static readonly List<IntPtr> ClientHandles = new List<IntPtr>();
+    private static readonly List<IntPtr> JobHandles = new List<IntPtr>();
 
     [DllImport("user32.dll")] private static extern bool GetSystemMetrics(int index);
+    [DllImport("kernel32.dll")] private static extern uint GetProcessId(IntPtr process);
+    [DllImport("kernel32.dll")] private static extern uint WaitForSingleObject(IntPtr handle, uint milliseconds);
+    [DllImport("kernel32.dll")] private static extern bool CloseHandle(IntPtr handle);
+    [DllImport("kernel32.dll")] private static extern IntPtr GetCurrentThread();
+    [DllImport("kernel32.dll")] private static extern bool SetThreadPriority(IntPtr thread, int priority);
 
     [STAThread]
     private static int Main(string[] args)
@@ -67,15 +87,33 @@ internal static class Updater
             if (Number(config, "schema") != 2 || Text(config, "executable") != Launcher) throw new InvalidDataException("Invalid updater plan");
             Abort = EventWaitHandle.OpenExisting(Text(config, "abortEvent"));
             UpdateWindow.Abort = Abort;
+            if (config.ContainsKey("blockEvent"))
+            {
+                UpdateWindow.Block = EventWaitHandle.OpenExisting(Text(config, "blockEvent"));
+                UpdateWindow.Reason = Text(config, "shutdownReason");
+            }
             using (EventWaitHandle ready = EventWaitHandle.OpenExisting(Text(config, "readyEvent")))
             using (UpdateWindow window = new UpdateWindow())
             {
                 window.Text = "Serpentine Launcher Updater";
                 IntPtr handle = window.Handle;
                 Thread worker = new Thread(delegate() {
+                    bool background = SetThreadPriority(GetCurrentThread(), 0x10000);
                     try { Install(config, ready); }
-                    catch (Exception error) { Failed(error); Result = 1; }
-                    finally { if (!window.IsDisposed) window.BeginInvoke(new Action(Application.Exit)); }
+                    catch (Exception error)
+                    {
+                        Failed(error);
+                        Result = 1;
+                        if (ParentExited && Resume != null && !UpdateWindow.Ending && !GetSystemMetrics(0x2000))
+                            try { StartResumed(); } catch { }
+                    }
+                    finally
+                    {
+                        KeepClients();
+                        foreach (IntPtr item in ClientHandles.Concat(JobHandles)) CloseHandle(item);
+                        if (background) SetThreadPriority(GetCurrentThread(), 0x20000);
+                        if (!window.IsDisposed) window.BeginInvoke(new Action(Application.Exit));
+                    }
                 });
                 worker.IsBackground = true;
                 window.BeginInvoke(new Action(worker.Start));
@@ -83,13 +121,13 @@ internal static class Updater
             }
         }
         catch (Exception error) { Failed(error); return 1; }
-        finally { if (Abort != null) Abort.Dispose(); }
+        finally { if (Abort != null) Abort.Dispose(); if (UpdateWindow.Block != null) UpdateWindow.Block.Dispose(); }
         return Result;
     }
 
     private static void Check()
     {
-        if (UpdateWindow.Ending || GetSystemMetrics(0x2000) || (Abort != null && Abort.WaitOne(0)) || File.Exists(Plan + ".cancel"))
+        if (UpdateWindow.Ending || (GetSystemMetrics(0x2000) && (UpdateWindow.Block == null || !UpdateWindow.Block.WaitOne(0))) || (Abort != null && Abort.WaitOne(0)) || File.Exists(Plan + ".cancel"))
             throw new OperationCanceledException("Update cancelled");
     }
 
@@ -227,8 +265,10 @@ internal static class Updater
             IntPtr parentHandle = parent.Handle;
             Check();
             ready.Set();
-            while (!parent.WaitForExit(250)) Check();
+            while (!parent.WaitForExit(100)) { AcceptClients(); Check(); }
         }
+        ParentExited = true;
+        AcceptClients();
         Check();
         string commitPath = Plan + ".commit";
         if (!File.Exists(commitPath)) throw new OperationCanceledException("Launcher did not authorize installation");
@@ -279,7 +319,64 @@ internal static class Updater
         }
         Check();
         if (commit.ContainsKey("restart") && Object.Equals(commit["restart"], true))
-            Process.Start(new ProcessStartInfo(launcher) { WorkingDirectory = Target, UseShellExecute = false });
+        {
+            if (Resume != null) StartResumed();
+            else Process.Start(new ProcessStartInfo(launcher) { WorkingDirectory = Target, UseShellExecute = false });
+        }
+    }
+
+    private static void AcceptClients()
+    {
+        string path = Plan + ".handoff";
+        if (Resume != null || !File.Exists(path)) return;
+        Dictionary<string, object> data = Read(path);
+        foreach (Dictionary<string, object> item in ((IEnumerable)data["clients"]).Cast<Dictionary<string, object>>())
+        {
+            Dictionary<string, object> handles = (Dictionary<string, object>)item["handles"];
+            IntPtr process = new IntPtr(Number(handles, "process"));
+            IntPtr job = new IntPtr(Number(handles, "job"));
+            if (GetProcessId(process) != Number(handles, "pid")) throw new InvalidDataException("Invalid transferred process handle");
+            ClientHandles.Add(process);
+            JobHandles.Add(job);
+        }
+        data["updaterPid"] = Process.GetCurrentProcess().Id;
+        data["target"] = Target;
+        Resume = data;
+        File.WriteAllText(Plan + ".resume", Json.Serialize(data));
+        File.WriteAllText(Plan + ".accepted", "ready");
+    }
+
+    private static void StartResumed()
+    {
+        string launcher = Safe(Target, Launcher);
+        Process.Start(new ProcessStartInfo(launcher) {
+            WorkingDirectory = Target, UseShellExecute = false,
+            Arguments = "--resume-update \"" + Plan + "\"",
+            WindowStyle = ProcessWindowStyle.Hidden
+        });
+    }
+
+    private static void KeepClients()
+    {
+        if (Resume == null) return;
+        DateTime deadline = DateTime.UtcNow.AddSeconds(60);
+        while (true)
+        {
+            string path = Plan + ".restored";
+            if (File.Exists(path))
+                try
+                {
+                    Dictionary<string, object> restored = Read(path);
+                    using (Process owner = Process.GetProcessById((int)Number(restored, "pid")))
+                        if (Text(restored, "token") == Text(Resume, "token") && String.Equals(owner.MainModule.FileName, Safe(Target, Launcher), StringComparison.OrdinalIgnoreCase))
+                        {
+                            return;
+                        }
+                }
+                catch { }
+            if (DateTime.UtcNow > deadline && (ClientHandles.Count == 0 || ClientHandles.All(handle => WaitForSingleObject(handle, 0) == 0))) return;
+            Thread.Sleep(100);
+        }
     }
 
     private static void Failed(Exception error)

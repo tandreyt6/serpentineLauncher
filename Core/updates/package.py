@@ -23,8 +23,20 @@ def version(value):
     return tuple(map(int, match.groups()))
 
 
+def release_version(value):
+    match = re.fullmatch(r'[vV]?((?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*))(?:-(alpha|beta)\.(0|[1-9]\d*))?', value) if isinstance(value, str) else None
+    if match is None:
+        raise ValueError(diagnostic('updates.invalid_version'))
+    return version(match[1]) + ({'alpha': 0, 'beta': 1, None: 2}[match[2]], int(match[3] or 0))
+
+
+def release_channel(value):
+    return ('alpha', 'beta', 'stable')[release_version(value)[3]]
+
+
 def asset_name(value):
-    return 'serpentineLauncher-' + '.'.join(map(str, version(value))) + '-' + PLATFORM + '.zip'
+    release_version(value)
+    return 'serpentineLauncher-' + value.lstrip('Vv') + '-' + PLATFORM + '.zip'
 
 
 def relative(value):
@@ -47,7 +59,7 @@ def sha256_file(stream):
 
 
 def validate_manifest(data, expected):
-    if not isinstance(data, dict) or data.get('schema') != 1 or data.get('platform') != PLATFORM or version(data.get('version')) != version(expected) or data.get('executable') != EXECUTABLE or not isinstance(data.get('files'), dict) or not 1 <= len(data['files']) <= MAXIMUM_FILES:
+    if not isinstance(data, dict) or data.get('schema') != 1 or data.get('platform') != PLATFORM or release_version(data.get('version')) != release_version(expected) or data.get('executable') != EXECUTABLE or not isinstance(data.get('files'), dict) or not 1 <= len(data['files']) <= MAXIMUM_FILES:
         raise ValueError(diagnostic('updates.invalid_package'))
     seen = set()
     total = 0

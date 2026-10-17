@@ -15,7 +15,8 @@ def main() -> int:
         from Core.resources.runtime import verify_embedded_resources
         print(json.dumps(verify_embedded_resources()))
         return 0
-    request = parse_arguments(sys.argv[1:])
+    from Core.updates.resume import initialize
+    request = parse_arguments(initialize(sys.argv[1:]))
     instance = InstanceDriver()
     try:
         if not instance.primary:

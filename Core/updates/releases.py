@@ -23,7 +23,7 @@ from Core.application.tasks import Cancellation, TaskManager
 from Core.configuration import settings
 from Core.network.network import NetworkManager
 from Core.resources.runtime import embedded
-from Core.updates.package import EXECUTABLE, MAXIMUM_ARCHIVE, asset_name, extract, version
+from Core.updates.package import EXECUTABLE, MAXIMUM_ARCHIVE, asset_name, extract, version, release_version, release_channel
 from Core.updates.version import UPDATER_EXECUTABLE, updater_asset_name
 
 
@@ -56,23 +56,50 @@ class UpdateManager:
         self._abort_event = None
         self._ready_event = None
         self._system_ending = False
+        self._block_event = None
+        self._block_shutdown = False
+        self._shutdown_reason = ''
 
     @property
     def installable(self):
         return sys.platform == 'win32' and embedded() and Path(sys.executable).name == EXECUTABLE and Path(sys.executable).resolve().parent == self._config.root.resolve()
 
-    def check(self, cancellation):
+    def check(self, cancellation, *, channel=None):
+        channel = channel or release_channel(self._config.launcher_version)
+        if channel not in ('stable', 'beta', 'alpha'):
+            raise ValueError(diagnostic('updates.invalid_release'))
+        endpoint = settings.UPDATE_API_URL if channel == 'stable' else settings.UPDATE_API_URL.removesuffix('/latest') + '?per_page=100'
         network = self._app.get('network', NetworkManager)
         try:
-            data = json.loads(network.read(HttpRequest(settings.UPDATE_API_URL), cancellation, 4194304))
+            data = json.loads(network.read(HttpRequest(endpoint), cancellation, 4194304))
         except HTTPError as error:
             if error.code == 404:
                 return None
             raise
-        if not isinstance(data, dict) or data.get('draft') is not False or data.get('prerelease') is not False:
+        if channel != 'stable':
+            if not isinstance(data, list) or len(data) > 100:
+                raise ValueError(diagnostic('updates.invalid_release'))
+            candidates = []
+            for item in data:
+                if not isinstance(item, dict) or item.get('draft') is not False or type(item.get('prerelease')) is not bool:
+                    continue
+                try:
+                    kind = release_channel(item.get('tag_name'))
+                except ValueError:
+                    continue
+                if item['prerelease'] != (kind != 'stable') or channel == 'beta' and kind == 'alpha':
+                    continue
+                candidates.append(item)
+            if not candidates:
+                return None
+            data = max(candidates, key=lambda item: release_version(item['tag_name']))
+        if not isinstance(data, dict) or data.get('draft') is not False or type(data.get('prerelease')) is not bool:
             raise ValueError(diagnostic('updates.invalid_release'))
         tag = data.get('tag_name')
-        if version(tag) <= version(settings.APP_VERSION):
+        kind = release_channel(tag)
+        if data['prerelease'] != (kind != 'stable') or channel == 'stable' and kind != 'stable':
+            raise ValueError(diagnostic('updates.invalid_release'))
+        if release_version(tag) <= release_version(self._config.launcher_version):
             return False
         candidates = [item for item in data.get('assets', []) if item.get('name') == asset_name(tag) and item.get('state') == 'uploaded']
         if len(candidates) != 1:
@@ -100,37 +127,25 @@ class UpdateManager:
             updater = Release(binary_version, binary['browser_download_url'], binary['size'], checksum[7:])
         return Release(tag, url, item['size'], item['digest'][7:], updater)
 
-    def submit(self, release):
-        operation = UpdateDownload(self._app, release)
+    def submit(self, release, background=False):
+        operation = UpdateDownload(self._app, release, background)
         stages = ((TaskStage('updater', .1), TaskStage('download', .85), TaskStage('verify', .05)) if release.updater else (TaskStage('download', .95), TaskStage('verify', .05)))
         task = self._app.get('tasks', TaskManager).submit(diagnostic('updates.task_title', release.version), operation.run, stages=stages, retryable=True)
         self.download_task = task
         self._app.get('events', EventManager).publish(CoreEvent('backend', BackendResult('task.update', release.version, task)))
         return task
 
-    def download(self, release, task, cancellation):
+    def download(self, release, task, cancellation, background=False):
         with self._lock:
-            if self.prepared is not None and version(self.prepared.version) >= version(release.version):
+            if self.prepared is not None and release_version(self.prepared.version) >= release_version(release.version):
                 return self.prepared
             tasks = self._app.get('tasks', TaskManager)
             folder = Path(tempfile.mkdtemp(prefix='serpentine-update-'))
             archive = folder / 'release.zip'
-            checksum, size = sha256(), 0
-            began = monotonic()
             try:
-                updater_path = self._download_updater(release.updater, folder, tasks, task, cancellation) if release.updater else None
+                updater_path = self._download_updater(release.updater, folder, tasks, task, cancellation, background) if release.updater else None
                 tasks.start_stage(task, 'download')
-                with archive.open('xb') as output, closing(self._app.get('network', NetworkManager).stream(HttpRequest(release.url), cancellation)) as stream:
-                    for chunk in stream:
-                        cancellation.check()
-                        size += len(chunk.data)
-                        if size > release.size:
-                            raise ValueError(diagnostic('updates.checksum'))
-                        checksum.update(chunk.data)
-                        output.write(chunk.data)
-                        tasks.progress(task, size, release.size, bytes_per_second=size / max(.001, monotonic() - began))
-                if size != release.size or checksum.hexdigest() != release.sha256:
-                    raise ValueError(diagnostic('updates.checksum'))
+                self._fetch(release, archive, tasks, task, cancellation, background)
                 tasks.start_stage(task, 'verify')
                 payload = folder / 'payload'
                 payload.mkdir()
@@ -147,7 +162,7 @@ class UpdateManager:
                     shutil.rmtree(folder)
                 raise
 
-    def _download_updater(self, release, folder, tasks, task, cancellation):
+    def _download_updater(self, release, folder, tasks, task, cancellation, background=False):
         tasks.start_stage(task, 'updater')
         installed = self._config.root / UPDATER_EXECUTABLE
         if os.name == 'nt':
@@ -156,7 +171,24 @@ class UpdateManager:
                 tasks.progress(task, release.size, release.size)
                 return installed
         path = folder / UPDATER_EXECUTABLE
+        self._fetch(release, path, tasks, task, cancellation, background)
+        if os.name == 'nt' and file_version(path) != version(release.version):
+            raise ValueError(diagnostic('updates.invalid_release'))
+        return path
+
+    def _fetch(self, release, path, tasks, task, cancellation, background):
+        if background and os.name == 'nt':
+            from Core.updates.bits import transfer
+            from Core.updates.package import digest
+            def paused(value):
+                tasks.update(task, 'paused' if value or cancellation.is_paused() else 'running')
+            transfer(self._config.root, release.url, path, release.size, cancellation,
+                lambda size, total, speed: tasks.progress(task, size, total, bytes_per_second=speed), paused)
+            if path.stat().st_size != release.size or digest(path) != release.sha256:
+                raise ValueError(diagnostic('updates.checksum'))
+            return
         checksum, size = sha256(), 0
+        began = monotonic()
         with path.open('xb') as output, closing(self._app.get('network', NetworkManager).stream(HttpRequest(release.url), cancellation)) as stream:
             for chunk in stream:
                 cancellation.check()
@@ -165,12 +197,9 @@ class UpdateManager:
                     raise ValueError(diagnostic('updates.checksum'))
                 checksum.update(chunk.data)
                 output.write(chunk.data)
-                tasks.progress(task, size, release.size)
+                tasks.progress(task, size, release.size, bytes_per_second=size / max(.001, monotonic() - began))
         if size != release.size or checksum.hexdigest() != release.sha256:
             raise ValueError(diagnostic('updates.checksum'))
-        if os.name == 'nt' and file_version(path) != version(release.version):
-            raise ValueError(diagnostic('updates.invalid_release'))
-        return path
 
     def arm(self, restart):
         if not self.installable or self.prepared is None:
@@ -181,12 +210,14 @@ class UpdateManager:
             if self.armed:
                 return self._plan
             from Core.updates.windows import WindowsEvent
-            for event in (self._abort_event, self._ready_event):
+            for event in (self._abort_event, self._ready_event, self._block_event):
                 if event is not None:
                     event.close()
             identity = uuid4().hex
             self._abort_event = WindowsEvent('Local\\SerpentineUpdateAbort-' + identity)
             self._ready_event = WindowsEvent('Local\\SerpentineUpdateReady-' + identity)
+            self._block_event = WindowsEvent('Local\\SerpentineUpdateBlock-' + identity)
+            self.configure_policy(self._block_shutdown, self._shutdown_reason)
             if self._system_ending:
                 self._abort_event.set()
                 raise ValueError(diagnostic('updates.cancelled'))
@@ -200,7 +231,8 @@ class UpdateManager:
             plan = folder / 'plan.json'
             plan.write_text(json.dumps(dict(schema=2, pid=os.getpid(), target=str(self._config.root.resolve()), executable=EXECUTABLE,
                 archive=str(archive.resolve()), size=archive.stat().st_size, sha256=self.prepared.sha256 or self._archive_digest(archive),
-                version=self.prepared.version, abortEvent=self._abort_event.name, readyEvent=self._ready_event.name), ensure_ascii=False), encoding='utf-8')
+                version=self.prepared.version, abortEvent=self._abort_event.name, readyEvent=self._ready_event.name,
+                blockEvent=self._block_event.name, shutdownReason=self._shutdown_reason), ensure_ascii=False), encoding='utf-8')
             self._process = subprocess.Popen([str(runner), '--plan', str(plan)], cwd=folder, stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                 creationflags=subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP, close_fds=True)
@@ -229,13 +261,57 @@ class UpdateManager:
         temporary.write_text(json.dumps(dict(restart=bool(restart))), encoding='utf-8')
         temporary.replace(path)
 
+    def handoff(self, plan, clients, window):
+        if self._system_ending or not self.armed or Path(plan) != self._plan:
+            raise ValueError(diagnostic('updates.cancelled'))
+        data = dict(clients=clients, window=window, token=uuid4().hex)
+        path = Path(str(plan) + '.handoff')
+        temporary = path.with_suffix('.pending')
+        temporary.write_text(json.dumps(data), encoding='utf-8')
+        temporary.replace(path)
+        deadline = monotonic() + 5
+        from time import sleep
+        while not Path(str(plan) + '.accepted').exists():
+            if self._system_ending or not self.armed or monotonic() >= deadline:
+                raise ValueError(diagnostic('updates.client_transfer'))
+            sleep(.025)
+        ticket = self._config.root / 'cache/update-session.json'
+        ticket.parent.mkdir(parents=True, exist_ok=True)
+        pending = ticket.with_suffix('.pending')
+        pending.write_text(json.dumps(dict(plan=str(plan), token=data['token'])), encoding='utf-8')
+        pending.replace(ticket)
+
     def abort(self):
         self._system_ending = True
         if self._abort_event is not None:
             self._abort_event.set()
 
+    def release_handoff(self, plan):
+        if Path(plan) != self._plan:
+            return
+        from Core.updates.resume import read
+        path = Path(str(plan) + '.resume')
+        if not path.is_file():
+            return
+        data = read(path)
+        if data['updaterPid'] != self._process.pid or Path(data['target']).resolve() != self._config.root.resolve():
+            raise ValueError(diagnostic('updates.client_transfer'))
+        destination = Path(str(plan) + '.restored')
+        pending = destination.with_suffix('.pending')
+        pending.write_text(json.dumps(dict(pid=os.getpid(), token=data['token'])), encoding='utf-8')
+        pending.replace(destination)
+        ticket = self._config.root / 'cache/update-session.json'
+        if ticket.is_file() and read(ticket).get('token') == data['token']:
+            ticket.unlink()
+
     def resume(self):
         self._system_ending = False
+
+    def configure_policy(self, blocked, reason):
+        self._block_shutdown = bool(blocked)
+        self._shutdown_reason = reason
+        if self._block_event is not None:
+            self._block_event.set() if blocked else self._block_event.reset()
 
     def disarm(self, plan):
         if self._plan == plan and self._abort_event is not None:
@@ -245,9 +321,14 @@ class UpdateManager:
 
 
 class UpdateDownload:
-    def __init__(self, app, release):
+    def __init__(self, app, release, background=False):
         self._app = app
         self._release = release
+        self._background = background
 
     def run(self, task, cancellation):
-        return self._app.get('updates', UpdateManager).download(self._release, task, cancellation)
+        if self._background and os.name == 'nt':
+            from Core.updates.windows import background_thread
+            with background_thread():
+                return self._app.get('updates', UpdateManager).download(self._release, task, cancellation, True)
+        return self._app.get('updates', UpdateManager).download(self._release, task, cancellation, self._background)

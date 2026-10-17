@@ -108,7 +108,8 @@ def check_clean(folder, prepared=False):
 
 
 def command(source, work, options):
-    version = config.APP_VERSION.lstrip('Vv') + '.0'
+    from Core.updates.package import release_version
+    version = '.'.join(map(str, release_version(config.APP_VERSION)[:3])) + '.0'
     arguments = [sys.executable, '-m', 'nuitka', '--mode=standalone', '--enable-plugin=pyside6',
         '--include-qt-plugins=sensible,qml', '--include-package=universal_gui',
         '--include-module=_launcher_embedded', '--include-module=_launcher_qt_resources',

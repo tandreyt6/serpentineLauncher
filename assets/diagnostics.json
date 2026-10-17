@@ -385,5 +385,8 @@
   "updates.source_mode": "Only the packaged Windows launcher can install updates.",
   "updates.cancelled": "Launcher update was cancelled for system shutdown.",
   "updates.updater_start": "The standalone updater could not start.",
+  "updates.client_transfer": "Running clients could not be transferred safely for the launcher update.",
+  "updates.bits_error": "Windows background transfer failed ({0}).",
+  "updates.background_unavailable": "Windows background download is unavailable. Automatic download will not switch to unrestricted network usage.",
   "updates.task_title": "Launcher update · {0}"
 }

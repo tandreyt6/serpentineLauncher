@@ -1,5 +1,6 @@
 import ctypes
 from ctypes import wintypes
+from contextlib import contextmanager
 
 
 class WindowsEvent:
@@ -9,6 +10,8 @@ class WindowsEvent:
         self.kernel.CreateEventW.restype = wintypes.HANDLE
         self.kernel.SetEvent.argtypes = (wintypes.HANDLE,)
         self.kernel.SetEvent.restype = wintypes.BOOL
+        self.kernel.ResetEvent.argtypes = (wintypes.HANDLE,)
+        self.kernel.ResetEvent.restype = wintypes.BOOL
         self.kernel.WaitForSingleObject.argtypes = (wintypes.HANDLE, wintypes.DWORD)
         self.kernel.WaitForSingleObject.restype = wintypes.DWORD
         self.kernel.CloseHandle.argtypes = (wintypes.HANDLE,)
@@ -24,6 +27,10 @@ class WindowsEvent:
 
     def wait(self, milliseconds):
         return self.handle is not None and self.kernel.WaitForSingleObject(self.handle, milliseconds) == 0
+
+    def reset(self):
+        if self.handle:
+            self.kernel.ResetEvent(self.handle)
 
     def close(self):
         if self.handle:
@@ -50,3 +57,18 @@ def file_version(path):
     if values[0] != 0xFEEF04BD:
         raise ValueError('Invalid Windows executable version metadata')
     return values[2] >> 16, values[2] & 65535, values[3] >> 16
+
+
+@contextmanager
+def background_thread():
+    kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+    kernel.GetCurrentThread.restype = wintypes.HANDLE
+    kernel.SetThreadPriority.argtypes = (wintypes.HANDLE, ctypes.c_int)
+    kernel.SetThreadPriority.restype = wintypes.BOOL
+    handle = kernel.GetCurrentThread()
+    entered = kernel.SetThreadPriority(handle, 0x00010000)
+    try:
+        yield
+    finally:
+        if entered:
+            kernel.SetThreadPriority(handle, 0x00020000)
