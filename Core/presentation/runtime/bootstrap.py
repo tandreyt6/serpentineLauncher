@@ -98,6 +98,7 @@ def attach_session(application, preview, backend, packs, resources, health, bund
     runtime.engine.rootContext().setContextProperty("Session", session)
     runtime.engine.rootContext().setContextProperty("Editors", editors)
     runtime.engine.rootContext().setContextProperty("Lifecycle", lifecycle)
+    runtime.engine.rootContext().setContextProperty("Updates", lifecycle.updates)
     runtime.engine.rootContext().setContextProperty("IconSources", {name: resource_url(path) for name, path in resources.icons})
     runtime.engine.rootContext().setContextProperty("ImageFiles", {name: resource_url(path) for name, path in resources.images})
     scenes = ThemeSceneManager(runtime.router, runtime.engine, packs, session, editors, lifecycle, health, persistent=not preview)

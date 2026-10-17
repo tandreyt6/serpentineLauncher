@@ -375,5 +375,13 @@
   "theme.icon.unsupported": "The theme icon is not a supported image.",
   "mod_import.limit": "The imported files exceed the configured import size limit.",
   "mod_import.changed": "The build or its files changed while confirming the import. Add the mod again.",
-  "mod_import.rollback": "Import could not restore every file. Original backup files have been preserved in: {0}"
+  "mod_import.rollback": "Import could not restore every file. Original backup files have been preserved in: {0}",
+  "updates.invalid_version": "Invalid launcher release version.",
+  "updates.unsafe_path": "Unsafe path in launcher update package.",
+  "updates.invalid_package": "Invalid launcher update package or manifest.",
+  "updates.invalid_release": "Invalid GitHub launcher release metadata.",
+  "updates.missing_asset": "The release has no compatible Windows update archive.",
+  "updates.checksum": "The launcher update checksum or size does not match.",
+  "updates.source_mode": "Only the packaged Windows launcher can install updates.",
+  "updates.task_title": "Launcher update · {0}"
 }

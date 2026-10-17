@@ -23,6 +23,7 @@ from Core.content.mods.mod_imports import ModImportManager
 from Core.content.mods.mod_inventory import ModInventoryManager
 from Core.application.log_storage import LogFileDriver
 from Core.application.logging_manager import LogManager
+from Core.updates.releases import UpdateManager
 
 
 class CoreRuntime:
@@ -35,6 +36,7 @@ class CoreRuntime:
         self.app.register("log_files", LogFileDriver())
         self.app.register("logs", LogManager(self.app, config))
         self.app.register("network", NetworkManager(config))
+        self.app.register("updates", UpdateManager(self.app, config))
         self.app.register("tasks", TaskManager(self.app, config.task_workers))
         self.app.register("downloads", DownloadManager(self.app, config))
         self.app.register("metadata", MetadataManager(self.app, config))

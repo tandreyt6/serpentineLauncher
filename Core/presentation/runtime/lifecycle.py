@@ -1,5 +1,6 @@
 from Core.application.diagnostics import diagnostic
 from threading import Thread
+from time import monotonic
 
 from PySide6.QtCore import QEvent, QObject, QTimer, Signal, Slot
 from PySide6.QtGui import QGuiApplication, QIcon
@@ -11,6 +12,9 @@ from Core.game.launch import LaunchManager
 from Core.application.runtime import CoreRuntime
 from Core.presentation.session import PreviewSession
 from Core.presentation.editor.editor_workspace import EditorWorkspace
+from Core.presentation.runtime.updates import UpdateController
+from Core.application.tasks import TaskManager
+from Core.updates.releases import UpdateManager
 
 
 class LifecycleManager(QObject):
@@ -32,6 +36,16 @@ class LifecycleManager(QObject):
         self._hidden = []
         self._pending_exit = False
         self._stopping = False
+        self._update_requested = False
+        self._update_restart = False
+        self._update_exit_ready = False
+        self._update_exit_preparing = False
+        self.updates = UpdateController(core, self)
+        self.updates.installRequested.connect(self.requestUpdate)
+        self.updates.exitPrepared.connect(self._update_prepared)
+        self._update_timer = QTimer(self)
+        self._update_timer.setInterval(100)
+        self._update_timer.timeout.connect(self._wait_update)
         self._tray = None
         self._menu = None
         self._timer = QTimer(self)
@@ -185,6 +199,8 @@ class LifecycleManager(QObject):
 
     @Slot()
     def requestExit(self) -> None:
+        if self._stopping:
+            return
         if self.active_clients():
             self.apply("hide")
             return
@@ -192,7 +208,87 @@ class LifecycleManager(QObject):
             self.show()
             self.quitRequested.emit()
             return
+        if not self._pending_exit:
+            self._update_exit_ready = False
         self._pending_exit = True
+        self._finish_exit()
+
+    def _update_blockers(self):
+        blockers = []
+        if self.active_clients():
+            blockers.append('updates.blocker.clients')
+        if self._session.dirtyEditors:
+            blockers.append('updates.blocker.editors')
+        if self._core is not None:
+            updater = self._core.app.get('updates', UpdateManager)
+            if any(task.task_id != updater.download_task and task.state in ('queued', 'running', 'retrying', 'paused', 'cancelling') for task in self._core.app.get('tasks', TaskManager).snapshots()):
+                blockers.append('updates.blocker.tasks')
+        return blockers
+
+    @Slot()
+    def requestUpdate(self):
+        if self._stopping or self._core is None:
+            return
+        if self._core.app.get('updates', UpdateManager).prepared is None:
+            return
+        blockers = self._update_blockers()
+        if blockers:
+            self.updates.blocked(blockers)
+            return
+        self._update_requested = True
+        self._update_restart = True
+        self._pending_exit = True
+        self._update_exit_ready = True
+        self._finish_exit()
+
+    def _cancel_tasks(self):
+        if self._core is not None:
+            tasks = self._core.app.get('tasks', TaskManager)
+            own = self._core.app.get('updates', UpdateManager).download_task
+            for task in tasks.snapshots():
+                if task.task_id != own and task.state in ('queued', 'running', 'retrying', 'paused'):
+                    tasks.cancel(task.task_id)
+
+    @Slot(str)
+    def resolveUpdate(self, choice):
+        if choice == 'later':
+            self._update_timer.stop()
+            self._pending_exit = False
+            self._update_requested = False
+            self._update_restart = False
+            self.updates.defer()
+        elif choice == 'continue' and self._core is not None:
+            self._cancel_tasks()
+            launch = self._core.app.get('launch', LaunchManager)
+            for client in launch.snapshots():
+                if client.state in ('starting', 'running'):
+                    launch.request_close(client.build_id)
+            if self._session.dirtyEditors:
+                self._session.command('editor_save', '*')
+            self._update_deadline = monotonic() + 60
+            self.updates.waiting()
+            self._update_timer.start()
+
+    @Slot()
+    def _wait_update(self):
+        blockers = self._update_blockers()
+        if not blockers:
+            self._update_timer.stop()
+            self.requestUpdate()
+        elif monotonic() >= self._update_deadline:
+            self._update_timer.stop()
+            self.updates.blocked(blockers, self._session.text('updates.close_timeout'))
+
+    @Slot()
+    def _update_prepared(self):
+        self._update_exit_preparing = False
+        self._update_exit_ready = True
+        if self._pending_exit and self._session.dirtyEditors:
+            self._pending_exit = False
+            if self._update_requested:
+                self.updates.blocked(self._update_blockers())
+            else:
+                self.quitRequested.emit()
         self._finish_exit()
 
     @Slot(str)
@@ -207,7 +303,16 @@ class LifecycleManager(QObject):
         if self._pending_exit and not self._session.dirtyEditors and not self._stopping:
             if self.active_clients():
                 self._pending_exit = False
-                self.apply("hide")
+                if self._update_requested:
+                    self.updates.blocked(self._update_blockers())
+                else:
+                    self.apply("hide")
+                return
+            if not self._update_exit_ready:
+                if not self._update_exit_preparing:
+                    self._update_exit_preparing = True
+                    self._cancel_tasks()
+                    self.updates.prepare_exit(bool(self._session.settings.get('silentUpdates', True) or self.updates.deferred or self._update_requested))
                 return
             self._stopping = True
             self.shutdownStarted.emit()
@@ -216,17 +321,33 @@ class LifecycleManager(QObject):
             Thread(target=self._stop_core, name="launcher-shutdown", daemon=True).start()
 
     def _stop_core(self) -> None:
+        plan = None
         try:
             if self._core is not None:
+                updater = self._core.app.get('updates', UpdateManager)
+                if updater.prepared is not None and (self._session.settings.get('silentUpdates', True) or self.updates.deferred or self._update_requested):
+                    try:
+                        plan = updater.arm(self._update_restart)
+                    except Exception as error:
+                        if self._update_requested:
+                            raise
+                        self._core.app.log_error('Launcher update: ' + str(error))
                 self._core.close()
             self.stopped.emit()
         except Exception as error:
+            if plan is not None:
+                try:
+                    updater.disarm(plan)
+                except OSError as cancellation_error:
+                    self._core.app.log_error('Launcher update cancellation: ' + str(cancellation_error))
             self.shutdownFailed.emit(str(error))
 
     @Slot(str)
     def _shutdown_failed(self, message: str) -> None:
         self._stopping = False
         self._pending_exit = False
+        self._update_requested = False
+        self._update_restart = False
         self._session.resumeUpdates()
         self.show()
         self._session.notice.emit(message)
@@ -241,6 +362,8 @@ class LifecycleManager(QObject):
         self._closed = True
         self._window_generation += 1
         self._timer.stop()
+        self._update_timer.stop()
+        self.updates.close()
         self._session.windowAction.disconnect(self.apply)
         self._session.changed.disconnect(self._finish_exit)
         self._session.localeChanged.disconnect(self._translate)

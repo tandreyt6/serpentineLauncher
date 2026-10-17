@@ -65,13 +65,13 @@ def prepare_source(source):
     source.mkdir()
     shutil.copy2(PROJECT / 'main.py', source / 'main.py')
     for name in ('application', 'appearance', 'cli', 'configuration', 'content', 'game',
-                 'installation', 'network', 'presentation', 'resources', 'startup'):
+                 'installation', 'network', 'presentation', 'resources', 'startup', 'updates'):
         shutil.copytree(PROJECT / 'Core' / name, source / 'Core' / name, ignore=IGNORE)
     shutil.copytree(PROJECT / 'ui', source / 'ui', ignore=IGNORE)
     assets = source / 'assets'
     assets.mkdir()
     shutil.copy2(config.APP_ICON, assets / 'icon.ico')
-    for name in ('ui-defaults.json', 'diagnostics.json'):
+    for name in ('ui-defaults.json', 'diagnostics.json', 'updater.ps1'):
         shutil.copy2(PROJECT / 'assets' / name, assets / name)
     shutil.copytree(PROJECT / 'assets/icons', assets / 'icons', ignore=IGNORE)
     (assets / 'locales').mkdir()
@@ -166,11 +166,15 @@ def main():
     parser.add_argument('--jobs', type=int, default=min(8, os.cpu_count() or 1))
     parser.add_argument('--skip-install', action='store_true')
     parser.add_argument('--prepare-only', action='store_true', help='Подготовить файлы и команду без компиляции EXE')
+    parser.add_argument('--skip-installer', action='store_true', help='Собрать ZIP и portable-папку без Inno Setup')
     options = parser.parse_args()
     if sys.platform != 'win32':
         parser.error('Этот сборщик создаёт Windows EXE; запустите его на Windows.')
     if options.jobs < 1:
         parser.error('--jobs должен быть положительным.')
+    if not options.prepare_only and not options.skip_installer:
+        from Core.build.installer import compiler
+        compiler()
     output = validate_output(options.output)
     versions = dependencies(options.skip_install) if not options.prepare_only else None
 
@@ -191,10 +195,10 @@ def main():
     distributions = list((work / 'compiled').glob('*.dist'))
     if len(distributions) != 1 or not (distributions[0] / EXE).is_file():
         raise ValueError('Nuitka не создал ожидаемую standalone-папку с EXE.')
-    return finalize_release(distributions[0], work, output, versions)
+    return finalize_release(distributions[0], work, output, versions, not options.skip_installer)
 
 
-def finalize_release(distribution, work, output, versions):
+def finalize_release(distribution, work, output, versions, installer=True):
     check_clean(distribution)
     if any(distribution.glob('qt6web*.dll')) or any(distribution.glob('qt6quick3d*.dll')):
         raise ValueError('В сборку попали неиспользуемые библиотеки браузера или 3D.')
@@ -229,7 +233,17 @@ def finalize_release(distribution, work, output, versions):
         app_version=config.APP_VERSION, built_at=datetime.now(timezone.utc).isoformat(),
         dependencies=versions, user_state_included=False, embedded_base=True,
         embedded_resource_files=len(inventory)), ensure_ascii=False, indent=2), encoding='utf-8')
+    for name in ('LICENSE', 'THIRD_PARTY_NOTICES.md'):
+        if (PROJECT / name).is_file():
+            shutil.copy2(PROJECT / name, distribution / name)
+    from Core.updates.package import build_release
+    release = build_release(distribution, PROJECT / 'artifacts/releases', config.APP_VERSION)
+    if installer:
+        from Core.build.installer import build_setup
+        setup = build_setup(distribution, release.parent, config.APP_VERSION)
+        print('Установщик для первой установки:', setup, flush=True)
     publish(distribution, output)
+    print('Архив для GitHub Releases:', release, flush=True)
     print('Готово:', output / EXE, flush=True)
     print('Переносите всю папку лаунчера. Настройки появятся только при его использовании.', flush=True)
     print('Отчёт компиляции:', work / 'compilation-report.xml', flush=True)

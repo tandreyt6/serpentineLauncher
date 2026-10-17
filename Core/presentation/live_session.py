@@ -179,7 +179,7 @@ class LiveSession(PreviewSession):
         if task.stage_index < 0:
             return self.text("task.stage.waiting")
         key = task.stages[task.stage_index].key
-        label = self.text("task.stage.processor") + " " + str(int(key.rsplit(".", 1)[1]) + 1) if key.startswith("installer.processor.") else self.text("task.stage." + key) if key in ("metadata", "libraries", "assets", "installer", "finalize", "download", "installer.dependencies", "installer.finalize") else key
+        label = self.text("task.stage.processor") + " " + str(int(key.rsplit(".", 1)[1]) + 1) if key.startswith("installer.processor.") else self.text("task.stage." + key) if key in ("metadata", "libraries", "assets", "installer", "finalize", "download", "verify", "installer.dependencies", "installer.finalize") else key
         return label + " · " + str(task.stage_index + 1) + "/" + str(len(task.stages))
 
     def _locale_changed(self, event: Event) -> None:
@@ -388,7 +388,7 @@ class LiveSession(PreviewSession):
         elif isinstance(payload, BackendResult):
             if payload.action == "activate":
                 self.windowAction.emit("show")
-            elif payload.action in ("task.core", "task.mod", "task.resources"):
+            elif payload.action in ("task.core", "task.mod", "task.resources", "task.update"):
                 self._links[payload.text] = (payload.action.split(".")[1], payload.key)
                 if payload.action == "task.core":
                     self._refresh_core_browser()
@@ -497,7 +497,7 @@ class LiveSession(PreviewSession):
                 progress = self._task_progress(task)
                 core = cores.get(owner)
                 build = builds.get(owner)
-                title = core.loader + " · " + core.minecraft if kind == "core" and core else self.text("editor.mods") + " · " + build.title if kind == "mod" and build else self.text("task.minecraft.resources") if kind == "resources" else task.title
+                title = core.loader + " · " + core.minecraft if kind == "core" and core else self.text("editor.mods") + " · " + build.title if kind == "mod" and build else self.text("task.minecraft.resources") if kind == "resources" else self.text('updates.task').replace('%version%', owner) if kind == 'update' else task.title
                 stage = self.text('downloads.stopped') if task.state == 'failed' else self._router.request(Request('localization', 'text', TextQuery('downloads.retrying', (('attempt', str(task.retry_count)), ('limit', str(task.retry_limit)))))) if task.state == 'retrying' else self._task_stage(task)
                 stage_progress = int(100 * (task.stage_step + task.stage_progress) / task.stage_steps) if task.stage_progress is not None else -1
                 self._downloads.append(DownloadPreview(task_id, title, progress, kind, owner, task.state == "paused", stage, stage_progress, task.bytes_per_second, task.state, self._error_text(task.error) if task.error else '', task.can_retry))

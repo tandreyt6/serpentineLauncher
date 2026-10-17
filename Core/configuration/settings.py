@@ -6,6 +6,7 @@ from Core.resources.runtime import resource_root
 ROOT = Path(__file__).resolve().parents[2]
 APP_NAME = "Serpantine Launcher"
 APP_VERSION = "V5.1.0"
+UPDATE_API_URL = 'https://api.github.com/repos/tandreyt6/serpentineLauncher/releases/latest'
 UI_DIRECTORY = resource_root("ui", ROOT / "ui")
 ASSETS_DIRECTORY = resource_root("assets", ROOT / "assets")
 UI_STYLE_DEFAULTS = json.loads((ASSETS_DIRECTORY / "ui-defaults.json").read_text(encoding="utf-8"))
@@ -186,6 +187,7 @@ APPLICATION_SETTINGS = {
     "buildDoubleClickAction": "play",
     "javaPath": "", "javaVersion": "auto", "memoryMin": "512", "memoryMax": "2048", "jvmArgs": "",
     "firstRunComplete": False,
+    "silentUpdates": True,
     "javaRestrictions": "default", "closeAction": "tray", "launchAction": "nothing", "finishAction": "last",
     "modDrop": True, "logMode": "normal", "zipBatch": "5", "reducedMotion": False, "theme": DEFAULT_THEME, "locale": DEFAULT_LOCALE,
     "editorWrap": False, "editorLineNumbers": True, "editorHighlighting": True,

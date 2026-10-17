@@ -23,6 +23,25 @@ Item {
                 onActivated: page.changes = true
             }
         }
+        RowLayout {
+            Layout.fillWidth: true
+            UG.Button {
+                tag: "ui.updates.check"
+                objectName: "updates.check"
+                textKey: "updates.check"
+                enabled: !Updates.busy
+                onActivated: Updates.check()
+            }
+            Item { Layout.fillWidth: true }
+            UG.Switch {
+                tag: "ui.updates.silent"
+                objectName: "updates.silent"
+                textKey: "updates.silent"
+                checkable: false
+                checked: Session.settings.silentUpdates
+                onClicked: Session.command("setting", "silentUpdates", (!Session.settings.silentUpdates).toString())
+            }
+        }
         UG.DocumentView {
             tag: "ui.about.document"
             Layout.fillWidth: true

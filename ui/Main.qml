@@ -540,6 +540,15 @@ Item {
         objectName: "firstRun.reminder.loader"
         source: ThemeUI.viewUrl("dialogs/FirstRunDialog.qml")
     }
+    DeferredPopup {
+        id: updateDialog
+        objectName: "updates.dialog.loader"
+        source: ThemeUI.viewUrl("dialogs/UpdateDialog.qml")
+    }
+    Connections {
+        target: Updates
+        function onDialogRequested() { updateDialog.open() }
+    }
     UG.ConfirmationDialog {
         id: themeRetry
         tag: "ui.theme.retry"
