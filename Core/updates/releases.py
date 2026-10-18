@@ -201,7 +201,7 @@ class UpdateManager:
         if size != release.size or checksum.hexdigest() != release.sha256:
             raise ValueError(diagnostic('updates.checksum'))
 
-    def arm(self, restart, *, show_progress=True, locale=settings.DEFAULT_LOCALE):
+    def arm(self, restart, *, show_progress=False, locale=settings.DEFAULT_LOCALE):
         if not self.installable or self.prepared is None:
             raise ValueError(diagnostic('updates.source_mode'))
         with self._lock:
