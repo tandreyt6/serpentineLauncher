@@ -34,6 +34,14 @@ def release_channel(value):
     return ('alpha', 'beta', 'stable')[release_version(value)[3]]
 
 
+def release_tag(value):
+    parsed = release_version(value)
+    tag = 'v' + '.'.join(map(str, parsed[:3]))
+    if parsed[3] < 2:
+        tag += '-' + ('alpha', 'beta')[parsed[3]] + '.' + str(parsed[4])
+    return tag
+
+
 def asset_name(value):
     release_version(value)
     return 'serpentineLauncher-' + value.lstrip('Vv') + '-' + PLATFORM + '.zip'
@@ -104,6 +112,7 @@ def extract(archive, folder, expected, cancellation):
 
 
 def build_release(distribution, output, release_version):
+    release_version = release_tag(release_version)
     distribution = Path(distribution).resolve()
     files = {}
     for path in sorted(distribution.rglob('*')):
