@@ -1,4 +1,5 @@
 from Core.configuration.settings import MINIMUM_GAME_WINDOW_WIDTH, MINIMUM_GAME_WINDOW_HEIGHT, MOD_CATALOGUE_PAGE_SIZE, MODRINTH_DOWNLOAD_HOST
+from Core.configuration.settings import INTERACTION_TIMING_SETTINGS, APPLICATION_SETTING_RANGES
 from Core.application.diagnostics import diagnostic
 import hashlib
 import re
@@ -61,6 +62,13 @@ class ApplicationStore:
                     if key in settings:
                         if type(value) is not type(settings[key]):
                             raise CoreError(diagnostic('application_store.invalid.saved.setting.type', key))
+                        if key in INTERACTION_TIMING_SETTINGS:
+                            minimum, maximum = APPLICATION_SETTING_RANGES[key]
+                            if value.isascii() and value.isdecimal():
+                                value = value.lstrip("0") or "0"
+                                value = str(maximum if len(value) > len(str(maximum)) else max(minimum, min(maximum, int(value))))
+                            else:
+                                value = settings[key]
                         settings[key] = value
                 for raw in state.get("queue", []):
                     data = dict(object_value(raw, "mod queue"))

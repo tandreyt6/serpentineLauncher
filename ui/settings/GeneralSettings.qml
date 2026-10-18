@@ -2,6 +2,7 @@ import "../Launcher/Style.js" as Style
 import QtQuick
 import QtQuick.Layouts
 import Working.Gui as UG
+import Launcher
 
 UG.ScrollArea {
     id: scroll
@@ -111,6 +112,14 @@ UG.ScrollArea {
                         onClicked: Session.command("setting", "reducedMotion", (!Session.settings.reducedMotion).toString())
                     }
                 }
+            }
+        }
+        UG.Frame {
+            tag: "settings.card.minecraftVersions"
+            Layout.fillWidth: true
+            contentItem: MinecraftVersionFilters {
+                tag: "settings.versionTypes"
+                titleRole: "heading"
             }
         }
     }

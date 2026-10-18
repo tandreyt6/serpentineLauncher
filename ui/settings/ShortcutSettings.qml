@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls as QC
 import Working.Gui as UG
+import "../Launcher/Style.js" as Style
 
 UG.ScrollArea {
     id: page
@@ -78,10 +79,18 @@ UG.ScrollArea {
         parent: QC.Overlay.overlay
         modal: true
         focus: true
-        width: Math.min(page.appearance.dialogWidth, parent ? parent.width - 2 * page.appearance.pageMargin : 0)
+        padding: page.appearance.dialogPadding
+        width: Math.min(Style.value(page.appearance, "shortcutCaptureWidth"), parent ? parent.width - 2 * page.appearance.pageMargin : Style.value(page.appearance, "shortcutCaptureWidth"))
         height: contentItem.implicitHeight + topPadding + bottomPadding
         x: parent ? (parent.width - width) / 2 : 0
         y: parent ? (parent.height - height) / 2 : 0
+        background: UG.Frame {
+            tag: "ui.settings.shortcuts.capture.surface"
+            objectName: "settings.shortcuts.capture.surface"
+            padding: 0
+            displayText: ""
+            useDisplayText: true
+        }
         property string actionKey: ""
         property string candidate: ""
         readonly property var validation: {

@@ -170,48 +170,29 @@ UG.ScrollArea {
                     tag: "settings.row.tooltipDelayMs"
                     textKey: "settings.tooltip_delay"
                     Layout.fillWidth: true
-                    UG.TextField {
+                    NumberSettingField {
                         tag: "settings.control.tooltipDelayMs"
+                        objectName: "settings.tooltipDelayMs"
+                        settingKey: "tooltipDelayMs"
                         displayText: ""
                         useDisplayText: true
                         Layout.preferredWidth: Style.value(scroll.appearance, "interfaceSettingsPreferredWidth")
                         Layout.alignment: Qt.AlignRight
-                        text: Session.settings.tooltipDelayMs
                         suffixText: Session.text("common.ms")
-                        validator: IntValidator {
-                            bottom: 0
-                            top: 5000
-                        }
-                        onEditingFinished: {
-                            Session.command("setting", "tooltipDelayMs", text)
-                            text = Qt.binding(function () {
-                                return Session.settings.tooltipDelayMs
-                            })
-                        }
                     }
                 }
                 UG.FormRow {
                     tag: "settings.row.notificationDurationMs"
                     textKey: "settings.notification_duration"
                     Layout.fillWidth: true
-                    UG.TextField {
+                    NumberSettingField {
                         tag: "settings.control.notificationDurationMs"
+                        settingKey: "notificationDurationMs"
                         displayText: ""
                         useDisplayText: true
                         Layout.preferredWidth: Style.value(scroll.appearance, "interfaceSettingsPreferredWidth")
                         Layout.alignment: Qt.AlignRight
-                        text: Session.settings.notificationDurationMs
                         suffixText: Session.text("common.ms")
-                        validator: IntValidator {
-                            bottom: 500
-                            top: 30000
-                        }
-                        onEditingFinished: {
-                            Session.command("setting", "notificationDurationMs", text)
-                            text = Qt.binding(function () {
-                                return Session.settings.notificationDurationMs
-                            })
-                        }
                     }
                 }
                 UG.FormRow {

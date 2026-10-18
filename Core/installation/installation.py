@@ -8,6 +8,7 @@ from Core.application.contracts import Artifact, CoreError, CoreEvent, CoreInsta
 from Core.network.downloads import DownloadManager
 from Core.installation.forge_installation import ForgeInstallerManager
 from Core.game.metadata import asset_artifacts, host_platform, manifest_entries, merge_profiles, object_value, parse_json, parse_profile, profile_artifacts
+from Core.game.assets import AssetManager
 from Core.network.network import NetworkManager
 from Core.application.router import AppManager, EventManager
 from Core.application.settings import CoreConfig
@@ -299,6 +300,7 @@ class InstallationOperation:
             assets = asset_artifacts(index, config)
             downloads.execute(DownloadBatch(assets, "Assets"), task_id, cancellation)
             verified.extend(assets)
+            verified.extend(self._app.get("assets", AssetManager).materialize(effective, cancellation, task_id=task_id).artifacts)
         cancellation.check()
         tasks.start_stage(task_id, "finalize")
         self._app.get("installation", InstallationManager).record_resources(profile)

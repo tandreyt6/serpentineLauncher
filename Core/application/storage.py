@@ -20,6 +20,16 @@ from Core.application.settings import CoreConfig
 from Core.application.tasks import Cancellation
 
 
+class StoragePath(type(Path())):
+    def __fspath__(self) -> str:
+        value = str(self)
+        if os.name != "nt" or not self.is_absolute() or value.startswith("\\\\?\\"):
+            return value
+        if value.startswith("\\\\"):
+            return "\\\\?\\UNC\\" + value[2:]
+        return "\\\\?\\" + value
+
+
 def safe_identifier(value: str) -> str:
     if not value or value in (".", "..") or not value.isascii() or re.search(r'[<>:"/\\|?*\s\x00-\x1f]', value) or value.endswith((".", " ")):
         raise CoreError(diagnostic('storage.invalid.portable.identifier'))
@@ -70,7 +80,7 @@ class FileManager:
         target = resolved_path(self._root.joinpath(*relative.parts))
         if not target.is_relative_to(self._root) or target == self._root:
             raise CoreError(diagnostic('storage.path.escapes.launcher.root'))
-        return target
+        return StoragePath(target)
 
     def exists(self, relative_path: str) -> bool:
         return self.path(relative_path).is_file()
@@ -89,7 +99,7 @@ class FileManager:
             raise error
         def descendants():
             for directory, folders, names in os.walk(target, onerror=failed, followlinks=False):
-                parent = Path(directory)
+                parent = StoragePath(resolved_path(Path(directory)))
                 folders[:] = [name for name in folders if not (parent / name).is_symlink() and not (parent == target and name.casefold() in {value.casefold() for value in exclude})]
                 for name in sorted(folders + names):
                     yield parent / name
@@ -238,7 +248,7 @@ class FileManager:
     def begin(self, relative_path: str) -> str:
         target = self.path(relative_path)
         target.parent.mkdir(parents=True, exist_ok=True)
-        descriptor, temporary_name = tempfile.mkstemp(prefix=f".{target.name}.", suffix=".part", dir=target.parent)
+        descriptor, temporary_name = tempfile.mkstemp(suffix=".part", dir=target.parent)
         token = uuid4().hex
         with self._lock:
             self._stages[token] = (Path(temporary_name), target, os.fdopen(descriptor, "wb"))

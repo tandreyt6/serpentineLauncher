@@ -523,5 +523,15 @@
   "updates.close_continue": "Закрыть и продолжить",
   "updates.task": "Обновление лаунчера · %version%",
   "task.stage.verify": "Проверка файлов",
-  "task.stage.updater": "Подготовка апдейтера"
+  "task.stage.updater": "Подготовка апдейтера",
+  "minecraft.version_types": "Типы версий Minecraft",
+  "minecraft.version_type.release": "Релизы",
+  "minecraft.version_type.snapshot": "Снапшоты",
+  "minecraft.version_type.old_beta": "Старые беты",
+  "minecraft.version_type.old_alpha": "Старые альфы",
+  "minecraft.version_types_hint": "Фильтры применяются к списку версий Minecraft при создании сборки. Изменения общие с окном создания и сохраняются автоматически.",
+  "minecraft.version_types_empty": "Нет версий выбранных типов",
+  "downloads.dismiss": "Убрать из списка",
+  "downloads.completed": "Задача завершена",
+  "downloads.cancelled": "Задача отменена"
 }

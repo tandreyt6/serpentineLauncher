@@ -10,7 +10,7 @@ from urllib.parse import quote
 
 from Core.application.contracts import Argument, Artifact, AssetIndex, CoreError, Digest, Library, LoggingSpec, PlatformSpec, Rule, VersionEntry, VersionProfile
 from Core.application.settings import CoreConfig
-from Core.application.storage import checked_relative
+from Core.application.storage import checked_relative, safe_identifier
 
 
 def host_platform(features: tuple[tuple[str, bool], ...] = ()) -> PlatformSpec:
@@ -154,6 +154,7 @@ def parse_profile(data: dict[str, Any], config: CoreConfig) -> VersionProfile:
     if "assetIndex" in data:
         index_entry = object_value(data["assetIndex"], "assetIndex")
         index_id = string_value(index_entry.get("id"), "assetIndex.id")
+        safe_identifier(index_id)
         index = AssetIndex(index_id, parse_artifact(index_entry, f"{config.libs_directory}/assets/indexes/{index_id}.json"))
     logging_spec = None
     logging_client = object_value(data.get("logging", {}), "logging").get("client")
@@ -223,17 +224,30 @@ def manifest_entries(data: dict[str, Any], config: CoreConfig) -> tuple[VersionE
     return tuple(entries)
 
 
-def asset_artifacts(data: dict[str, Any], config: CoreConfig) -> tuple[Artifact, ...]:
-    if data.get("virtual") or data.get("map_to_resources"):
-        raise CoreError(diagnostic('metadata.legacy.virtual.resource.mapped.assets.require'))
-    unique: dict[str, Artifact] = {}
-    for value in object_value(data.get("objects"), "assets.objects").values():
+def asset_mappings(data: dict[str, Any], config: CoreConfig) -> tuple[tuple[str, Artifact], ...]:
+    if any(type(data.get(flag, False)) is not bool for flag in ("virtual", "map_to_resources")):
+        raise CoreError(diagnostic('metadata.invalid.asset.layout'))
+    mappings = []
+    names = set()
+    for name, value in object_value(data.get("objects"), "assets.objects").items():
+        checked_relative(name)
+        if name.casefold() in names:
+            raise CoreError(diagnostic('metadata.conflicting.asset.paths'))
+        names.add(name.casefold())
         entry = object_value(value, "asset")
         digest = string_value(entry.get("hash"), "asset.hash")
         if len(digest) != 40 or any(character not in "0123456789abcdef" for character in digest):
             raise CoreError(diagnostic('metadata.invalid.asset.sha'))
         size = entry.get("size")
-        if not isinstance(size, int) or size < 0:
+        if type(size) is not int or size < 0:
             raise CoreError(diagnostic('metadata.invalid.asset.size'))
-        unique[digest] = Artifact(f"{config.asset_cdn.rstrip('/')}/{digest[:2]}/{digest}", f"{config.libs_directory}/assets/objects/{digest[:2]}/{digest}", size, (Digest("sha1", digest),))
-    return tuple(unique.values())
+        artifact = Artifact(f"{config.asset_cdn.rstrip('/')}/{digest[:2]}/{digest}", f"{config.libs_directory}/assets/objects/{digest[:2]}/{digest}", size, (Digest("sha1", digest),))
+        mappings.append((name, artifact))
+    for name in names:
+        if any(parent.as_posix().casefold() in names for parent in checked_relative(name).parents if parent.as_posix() != "."):
+            raise CoreError(diagnostic('metadata.conflicting.asset.paths'))
+    return tuple(mappings)
+
+
+def asset_artifacts(data: dict[str, Any], config: CoreConfig) -> tuple[Artifact, ...]:
+    return tuple({artifact.relative_path: artifact for name, artifact in asset_mappings(data, config)}.values())

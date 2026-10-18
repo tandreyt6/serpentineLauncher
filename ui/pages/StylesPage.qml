@@ -191,14 +191,14 @@ UG.Page {
                                 tag: "styles.row.title"
                                 Layout.fillWidth: true
                                 elide: Text.ElideRight
-                                displayText: row.modelData.builtin ? Session.text("theme." + row.modelData.id) : row.modelData.title
+                                displayText: { Session.locale; return row.modelData.builtin ? Session.text("theme." + row.modelData.id) : row.modelData.title }
                                 font.weight: Font.DemiBold
                             }
                             UG.UiText {
                                 tag: "styles.row.status"
                                 Layout.fillWidth: true
                                 typographyRole: "caption"
-                                displayText: Session.text(row.themeFailure.length ? "styles.broken" : row.failure.length ? "styles.icon_error" : row.activeStyle ? "styles.current" : row.modelData.builtin ? "styles.builtin" : "styles.installed")
+                                textKey: row.themeFailure.length ? "styles.broken" : row.failure.length ? "styles.icon_error" : row.activeStyle ? "styles.current" : row.modelData.builtin ? "styles.builtin" : "styles.installed"
                                 color: row.failure.length ? page.appearance.danger : page.appearance.muted
                             }
                         }
@@ -208,7 +208,7 @@ UG.Page {
                             errorIconSource: IconSources["theme-error"] || ""
                             visible: row.failure.length > 0
                             tooltip: row.failure
-                            Accessible.name: Session.text("styles.broken")
+                            Accessible.name: { Session.locale; return Session.text("styles.broken") }
                         }
                         UG.Button {
                             id: detailsButton
@@ -260,9 +260,9 @@ UG.Page {
     FileDialog {
         id: picker
         objectName: "styles.file.picker"
-        title: Session.text("styles.install")
+        title: { Session.locale; return Session.text("styles.install") }
         fileMode: FileDialog.OpenFiles
-        nameFilters: [Session.text("styles.file_filter")]
+        nameFilters: { Session.locale; return [Session.text("styles.file_filter")] }
         onAccepted: Session.importThemes(selectedFiles.map(url => url.toString()))
     }
 }

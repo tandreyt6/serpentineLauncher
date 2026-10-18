@@ -284,7 +284,7 @@ class ThemeSceneManager(QObject):
             return
         self._map(bundle)
         self._bundle = bundle
-        self._engine.clearComponentCache()
+        self._engine.trimComponentCache()
         try:
             main = self._router.request(Request("windows", "instance", "main"))
             if main is not None:
@@ -295,7 +295,7 @@ class ThemeSceneManager(QObject):
         except Exception as error:
             self._map(previous)
             self._bundle = previous
-            self._engine.clearComponentCache()
+            self._engine.trimComponentCache()
             self._failed(str(error), theme_failure=isinstance(error, (ValueError, KeyError, OSError)))
             return
         self._bundle = bundle
@@ -383,7 +383,7 @@ class ThemeSceneManager(QObject):
             fallback = ThemeSceneBundle(self._session.theme, None, "")
             self._map(fallback)
             self._bundle = fallback
-            self._engine.clearComponentCache()
+            self._engine.trimComponentCache()
             self._editors.clearViewCache()
             if self._router.request(Request("windows", "instance", "main")) is None:
                 self._router.request(Request("windows", "configure", WindowDefinition("main", str(UI_DIRECTORY / "Window.qml"))))

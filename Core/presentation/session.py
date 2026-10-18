@@ -15,12 +15,15 @@ from Core.presentation.fixtures import ACCOUNTS, BUILDS, CORES, MOD_CATALOG, SET
 from Core.presentation.build_model import BuildListModel, CoreListModel, DownloadListModel
 from Core.presentation import shortcuts
 from Core.configuration.settings import SHORTCUT_ACTIONS
+from Core.configuration.settings import MINECRAFT_VERSION_FILTERS
+from Core.content.version_filters import visible_minecraft_versions
 from Core.content.versions import version_key
 from universal_gui.contracts import Event, LocaleCatalog, Request, SettingChange, TextQuery
 from universal_gui.services.events import Subscription
 
 
 class PreviewSession(QObject):
+    settingRanges = Property("QVariantMap", lambda self: {key: list(bounds) for key, bounds in APPLICATION_SETTING_RANGES.items()}, constant=True)
     cardSizeOptions = Property("QVariantList", lambda self: [asdict(CardSizeOption(key, "builds." + key, key + "CardWidth")) for key in APPLICATION_SETTING_CHOICES["buildCardSize"]], constant=True)
     buildDoubleClickOptions = Property("QVariantList", lambda self: [asdict(SettingChoice(key, "settings.build_double_click." + key)) for key in APPLICATION_SETTING_CHOICES["buildDoubleClickAction"]], constant=True)
     changed = Signal()
@@ -83,6 +86,7 @@ class PreviewSession(QObject):
         self.changed.connect(self.downloadsChanged.emit)
         self.downloadsChanged.connect(self._sync_download_model)
         self._settings = dict(SETTINGS)
+        self._minecraft_version_types = {}
         self._page = "builds"
         self._page_history: list[str] = []
         self._about_build = ""
@@ -255,6 +259,12 @@ class PreviewSession(QObject):
     activeAccountId = Property(str, lambda self: self._account, notify=changed)
     live = Property(bool, lambda self: False, constant=True)
     minecraftVersions = Property("QVariantList", lambda self: ["1.21.4", "1.21.1", "1.20.1"], notify=minecraftVersionsChanged)
+    minecraftVersionFilterChoices = Property("QVariantList", lambda self: [dict(type=category, setting=setting, textKey=text_key) for category, setting, text_key in MINECRAFT_VERSION_FILTERS], constant=True)
+
+    @Slot("QVariantList", result="QVariantList")
+    def filterMinecraftVersions(self, versions):
+        types = self._minecraft_version_types if self.live else {version: "release" for version in versions}
+        return visible_minecraft_versions(versions, types, self._settings)
     editorChanged = Signal()
     fileLoaded = Signal(str, str, str)
     fileSaved = Signal(str, str, str)
@@ -658,11 +668,13 @@ class PreviewSession(QObject):
             if core.installed:
                 self._cores = [replace(item, installed=False, progress=-1, paused=False) if item.id == key else item for item in self._cores]
                 self.notice.emit(self.text("notice.core_deleted"))
-        elif payload.action in ("pause_download", "cancel_download", 'retry_download'):
+        elif payload.action in ("pause_download", "cancel_download", 'retry_download', "dismiss_download"):
             download = next((item for item in self._downloads if item.id == key), None)
             if download is None:
                 return None
-            if payload.action == "cancel_download":
+            if payload.action == "dismiss_download" and download.state not in ("failed", "completed", "cancelled"):
+                return False
+            if payload.action in ("cancel_download", "dismiss_download"):
                 self._downloads = [item for item in self._downloads if item.id != key]
                 self._cores = [replace(item, progress=-1, paused=False) if item.id == download.owner_id and download.kind == "core" else item for item in self._cores]
                 self._mod_queue = [replace(item, state="queued") if download.kind == "mod" and "mod:" + item.owner_id + ":" + item.id == key else item for item in self._mod_queue]

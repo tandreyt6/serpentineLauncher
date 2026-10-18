@@ -388,5 +388,8 @@
   "updates.client_transfer": "Running clients could not be transferred safely for the launcher update.",
   "updates.bits_error": "Windows background transfer failed ({0}).",
   "updates.background_unavailable": "Windows background download is unavailable. Automatic download will not switch to unrestricted network usage.",
-  "updates.task_title": "Launcher update · {0}"
+  "updates.task_title": "Launcher update · {0}",
+  "network.certificate_context": "TLS certificate validation failed for {0}; system UTC: {1}. Certificate verification remains enabled.",
+  "metadata.invalid.asset.layout": "Asset layout flags must be boolean.",
+  "metadata.conflicting.asset.paths": "Asset index contains conflicting file paths."
 }

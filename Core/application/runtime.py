@@ -3,6 +3,7 @@ from Core.installation.forge_installation import ForgeInstallerManager
 from Core.installation.installation import InstallationManager, MetadataManager
 from Core.game.java import JavaManager
 from Core.game.launch import LaunchManager
+from Core.game.assets import AssetManager
 from Core.content.mods.mods import ModMetadataManager
 from Core.content.mrpacks import MrpackMetadataManager
 from Core.network.network import NetworkManager
@@ -40,6 +41,7 @@ class CoreRuntime:
         self.app.register("tasks", TaskManager(self.app, config.task_workers))
         self.app.register("downloads", DownloadManager(self.app, config))
         self.app.register("metadata", MetadataManager(self.app, config))
+        self.app.register("assets", AssetManager(self.app, config))
         self.app.register("mods", ModMetadataManager(self.app, config))
         self.app.register("mrpacks", MrpackMetadataManager(self.app, config))
         self.app.register("installation", InstallationManager(self.app, config))

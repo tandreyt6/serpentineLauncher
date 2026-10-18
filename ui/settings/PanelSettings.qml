@@ -2,6 +2,7 @@ import "../Launcher/Style.js" as Style
 import QtQuick
 import QtQuick.Layouts
 import Working.Gui as UG
+import Launcher
 
 UG.ScrollArea {
     id: scroll
@@ -218,48 +219,30 @@ UG.ScrollArea {
                     visible: !scroll.horizontalPanel
                     textKey: "settings.panel_hover_close"
                     Layout.fillWidth: true
-                    UG.TextField {
+                    NumberSettingField {
                         tag: "settings.control.panelHoverCloseMs"
                         objectName: "settings.panelHoverCloseMs"
+                        settingKey: "panelHoverCloseMs"
                         displayText: ""
                         useDisplayText: true
                         Layout.preferredWidth: Style.value(scroll.appearance, "panelSettingsPreferredWidth")
                         Layout.alignment: Qt.AlignRight
-                        text: Session.settings.panelHoverCloseMs
                         suffixText: Session.text("common.ms")
-                        validator: IntValidator {
-                            bottom: 0
-                            top: 5000
-                        }
-                        onEditingFinished: {
-                            if (acceptableInput)
-                                Session.command("setting", "panelHoverCloseMs", text)
-                            text = Qt.binding(function () { return Session.settings.panelHoverCloseMs })
-                        }
                     }
                 }
                 UG.FormRow {
                     tag: "settings.row.panelAnimationMs"
                     textKey: "settings.panel_animation"
                     Layout.fillWidth: true
-                    UG.TextField {
+                    NumberSettingField {
                         tag: "settings.control.panelAnimationMs"
+                        objectName: "settings.panelAnimationMs"
+                        settingKey: "panelAnimationMs"
                         displayText: ""
                         useDisplayText: true
                         Layout.preferredWidth: Style.value(scroll.appearance, "panelSettingsPreferredWidth")
                         Layout.alignment: Qt.AlignRight
-                        text: Session.settings.panelAnimationMs
                         suffixText: Session.text("common.ms")
-                        validator: IntValidator {
-                            bottom: 0
-                            top: 1000
-                        }
-                        onEditingFinished: {
-                            Session.command("setting", "panelAnimationMs", text)
-                            text = Qt.binding(function () {
-                                return Session.settings.panelAnimationMs
-                            })
-                        }
                     }
                 }
             }

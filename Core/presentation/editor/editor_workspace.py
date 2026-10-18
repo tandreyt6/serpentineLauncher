@@ -6,10 +6,11 @@ from PySide6.QtQml import QQmlComponent, QQmlEngine, QQmlError, QQmlProperty
 from PySide6.QtQuick import QQuickItem, QQuickWindow
 from shiboken6 import isValid
 
-from Core.configuration.settings import UI_DIRECTORY
+from Core.configuration.settings import UI_DIRECTORY, UI_STYLE_DEFAULTS
 from Core.presentation.contracts import EditorCommand, EditorSaveState, EditorTab, PreviewCommand
 from Core.presentation.editor.editor_catalog import CONFIGS, LOGS, config_entries
 from Core.presentation.editor.editor_loading import PageLoad
+from Core.presentation.editor.window_placement import offset_position
 from universal_gui.app_manager import AppManager
 from universal_gui.contracts import Event, LocaleCatalog, Request, TextQuery
 from universal_gui.qt.workspace import TabAction, TabDefinition, TabGroup, TabInsert
@@ -507,6 +508,8 @@ class EditorWorkspace(QObject):
                     continue
                 self._windows[group] = window
                 window.setObjectName("launcher.editor." + group)
+                if not self._workspace("dragging"):
+                    self._position_window(window)
             selected = self.selected(group)
             if selected in self._tabs:
                 tab = self._tabs[selected]
@@ -530,6 +533,11 @@ class EditorWorkspace(QObject):
             self.structureChanged.emit()
         self._revision += 1
         self.changed.emit()
+
+    def _position_window(self, window: QQuickWindow) -> None:
+        main = self._router.request(Request("windows", "instance", "main"))
+        if main is not None and main.screen() is not None:
+            window.setPosition(offset_position(main.frameGeometry(), window.size(), main.screen().availableGeometry(), UI_STYLE_DEFAULTS["editorWindowOffset"]))
 
     def _focus(self, group: str) -> None:
         window = self._windows.get(group)
@@ -566,3 +574,4 @@ class EditorWorkspace(QObject):
         self._pending_close.clear()
         self._close_requests.clear()
         self._buffers.clear()
+

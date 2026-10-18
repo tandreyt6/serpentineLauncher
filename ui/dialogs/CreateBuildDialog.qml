@@ -29,7 +29,10 @@ UG.PopupPanel {
     property var loaderOptions: []
     readonly property var versions: Session.live ? loaderOptions.map(option => option.value) : selectedLoader === "Fabric" ? ["0.16.10", "0.16.9"] : selectedLoader === "Forge" ? ["47.3.0", "47.2.0"] : selectedLoader === "NeoForge" ? ["21.1.115", "21.1.90"] : ["0.27.1", "0.26.0"]
     readonly property bool versionsBusy: (Session.catalogueUpdating, Session.versionCatalogueRevision, Session.catalogueBusy(selectedLoader, selectedMinecraft))
-    readonly property var minecraftVersions: Session.live ? Session.minecraftVersions : selectedLoader === "Vanilla" ? ["1.21.4", "1.21.1", "1.20.1"] : selectedLoader === "Forge" ? ["1.20.1"] : ["1.21.1"]
+    readonly property var minecraftVersions: {
+        Session.settings
+        return Session.filterMinecraftVersions(Session.live ? Session.minecraftVersions : selectedLoader === "Vanilla" ? ["1.21.4", "1.21.1", "1.20.1"] : selectedLoader === "Forge" ? ["1.20.1"] : ["1.21.1"])
+    }
     function reconcileVersionSelection() {
         if (!versionsBusy && !versions.includes(selectedLoaderVersion))
             selectedLoaderVersion = versions.length ? versions[0] : ""
@@ -83,7 +86,7 @@ UG.PopupPanel {
                 dialog.loaderOptions = choices
         }
         function onCatalogueStateChanged() {
-            if (dialog.visible && Session.live && dialog.selectedLoader !== "Vanilla")
+            if (dialog.visible && Session.live && dialog.selectedLoader !== "Vanilla" && dialog.selectedMinecraft.length)
                 Session.requestVersions(dialog.selectedLoader, dialog.selectedMinecraft)
         }
     }
@@ -135,6 +138,10 @@ UG.PopupPanel {
                 dialog.error = Session.validateId(text)
             }
         }
+        MinecraftVersionFilters {
+            tag: "create.versionTypes"
+            Layout.fillWidth: true
+        }
         RowLayout {
             Layout.fillWidth: true
             spacing: Style.value(dialog.appearance, "createBuildDialogSpacing2")
@@ -155,6 +162,8 @@ UG.PopupPanel {
                     textRole: "text"
                     secondaryRole: "secondary"
                     objectName: "create.minecraft"
+                    textKey: dialog.minecraftVersions.length ? "common.choose" : "minecraft.version_types_empty"
+                    enabled: dialog.minecraftVersions.length > 0
                     Layout.fillWidth: true
                     searchable: true
                     model: {

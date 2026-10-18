@@ -10,6 +10,7 @@ from uuid import uuid4
 from Core.application.contracts import Argument, Cancelled, ClientSnapshot, CoreError, CoreEvent, JavaSettings, LaunchPlan, LaunchRequest, PlatformSpec, VersionProfile
 from Core.installation.installation import InstallationManager, MetadataManager
 from Core.game.java import JavaManager, merge_java
+from Core.game.assets import AssetManager
 from Core.game.metadata import allowed, host_platform, native_artifact, object_value, profile_artifacts
 from Core.game.processes import ManagedProcess, ProcessSpec
 from Core.game.process_manager import ProcessDriver
@@ -34,7 +35,7 @@ def expand_arguments(profile_arguments: tuple[Argument, ...], target: PlatformSp
     return tuple(substitute(value, variables) for argument in profile_arguments if allowed(argument.rules, target) for value in argument.values)
 
 
-def build_launch_plan(request: LaunchRequest, settings: JavaSettings, profile: VersionProfile, config: CoreConfig, target: PlatformSpec, native_directory: Path, log_path: Path) -> LaunchPlan:
+def build_launch_plan(request: LaunchRequest, settings: JavaSettings, profile: VersionProfile, config: CoreConfig, target: PlatformSpec, native_directory: Path, log_path: Path, game_assets: Path | None = None) -> LaunchPlan:
     if not profile.main_class or not re.fullmatch(r"[A-Za-z_$][\w.$]*", profile.main_class):
         raise CoreError(diagnostic('launch.profile.does.not.declare.a.valid'))
     if profile.client is None:
@@ -54,6 +55,7 @@ def build_launch_plan(request: LaunchRequest, settings: JavaSettings, profile: V
     cache_root = root / config.libs_directory
     library_root = root / config.cores_directory / config.cache_directory if profile.parent_id else cache_root
     variables = (("auth_player_name", request.account.username), ("auth_uuid", request.account.uuid), ("auth_access_token", request.account.access_token), ("auth_session", f"token:{request.account.access_token}:{request.account.uuid}"), ("user_type", request.account.user_type), ("user_properties", "{}"), ("auth_xuid", request.account.xuid), ("clientid", request.account.client_id), ("version_name", profile.version_id), ("version_type", profile.version_type or "release"), ("game_directory", str(game_directory)), ("assets_root", str(cache_root / "assets")), ("assets_index_name", profile.asset_index.index_id if profile.asset_index else ""), ("natives_directory", str(native_directory)), ("library_directory", str(library_root / "libraries")), ("classpath", classpath), ("classpath_separator", separator), ("launcher_name", config.launcher_name), ("launcher_version", config.launcher_version), ("resolution_width", str(request.width or 0)), ("resolution_height", str(request.height or 0)))
+    variables += (("game_assets", str(game_assets if game_assets is not None else cache_root / "assets")),)
     jvm = expand_arguments(profile.jvm_arguments, target, variables)
     if not profile.jvm_arguments:
         jvm = (f"-Djava.library.path={native_directory}", "-cp", classpath)
@@ -267,7 +269,8 @@ class LaunchOperation:
             native_path = files.extract_natives(archives, native_relative, cancellation)
             log_stamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
             log_path = files.path(f"{config.builds_directory}/{self._request.build_id}/{config.build_logs_directory}/{log_stamp}-{uuid4().hex[:8]}.log")
-            plan = build_launch_plan(self._request, settings, profile, config, target, native_path, log_path)
+            assets = self._app.get("assets", AssetManager).materialize(profile, cancellation, self._request.build_id, task_id)
+            plan = build_launch_plan(self._request, settings, profile, config, target, native_path, log_path, files.path(assets.directory))
             cancellation.check()
             process = self._app.get("processes", ProcessDriver).spawn(ProcessSpec(plan.argv, plan.working_directory, plan.log_path))
             cancellation.check()

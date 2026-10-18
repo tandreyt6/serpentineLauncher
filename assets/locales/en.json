@@ -523,5 +523,15 @@
   "updates.close_continue": "Close and continue",
   "updates.task": "Launcher update · %version%",
   "task.stage.verify": "Verifying files",
-  "task.stage.updater": "Preparing updater"
+  "task.stage.updater": "Preparing updater",
+  "minecraft.version_types": "Minecraft version types",
+  "minecraft.version_type.release": "Releases",
+  "minecraft.version_type.snapshot": "Snapshots",
+  "minecraft.version_type.old_beta": "Old betas",
+  "minecraft.version_type.old_alpha": "Old alphas",
+  "minecraft.version_types_hint": "These filters apply to the Minecraft version list when creating a build. Changes are shared with the creation dialog and saved automatically.",
+  "minecraft.version_types_empty": "No versions match the selected types",
+  "downloads.dismiss": "Remove from list",
+  "downloads.completed": "Task completed",
+  "downloads.cancelled": "Task cancelled"
 }

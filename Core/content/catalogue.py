@@ -82,7 +82,8 @@ class CatalogueManager:
             for source in self._sources.values():
                 games.update(source.games)
                 games.update(core.minecraft for core in source.cores)
-            return CatalogueState(self._revision, self._updating, tuple(sorted(games, key=version_key, reverse=True)), self._errors)
+            types = tuple(entry for source in self._sources.values() for entry in source.minecraft_types)
+            return CatalogueState(self._revision, self._updating, tuple(sorted(games, key=version_key, reverse=True)), self._errors, types)
 
     def _publish_state(self) -> None:
         state = self.state()
@@ -163,8 +164,8 @@ class CatalogueManager:
     def fetch_source(self, loader: str, cancellation: Cancellation) -> CatalogueSource:
         network = self._app.get("network", NetworkManager)
         if loader == "Vanilla":
-            games = tuple(item.version_id for item in self._app.get("metadata", MetadataManager).catalogue(cancellation))
-            return CatalogueSource(loader, games)
+            entries = self._app.get("metadata", MetadataManager).catalogue(cancellation)
+            return CatalogueSource(loader, tuple(item.version_id for item in entries), minecraft_types=tuple((item.version_id, item.version_type) for item in entries))
         if loader in ("Fabric", "Quilt"):
             base = self._config.fabric_meta_url if loader == "Fabric" else self._config.quilt_meta_url
             games = json.loads(network.read(HttpRequest(base + "/versions/game"), cancellation, self._config.maximum_metadata_bytes))

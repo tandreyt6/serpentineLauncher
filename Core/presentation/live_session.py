@@ -412,6 +412,10 @@ class LiveSession(PreviewSession):
         elif isinstance(payload, CatalogueState):
             previous_state = self._catalogue_state
             self._catalogue_state = payload
+            types = {**self._minecraft_version_types, **dict(payload.minecraft_types)}
+            if types != self._minecraft_version_types:
+                self._minecraft_version_types = types
+                self.minecraftVersionsChanged.emit()
             self.catalogueStateChanged.emit()
             self._refresh_core_browser()
             if payload.errors and not payload.updating and (previous_state.updating or payload.errors != previous_state.errors):
@@ -493,15 +497,22 @@ class LiveSession(PreviewSession):
         links = {**{key: ('download', '') for key, value in self._tasks.items() if value.can_retry}, **self._links}
         for task_id, (kind, owner) in links.items():
             task = self._tasks.get(task_id)
-            if task_id not in self._dismissed_tasks and task and task.state in ("queued", "running", "retrying", "paused", "cancelling", "failed"):
-                progress = self._task_progress(task)
+            if task_id not in self._dismissed_tasks and task and task.state in ("queued", "running", "retrying", "paused", "cancelling", "failed", "cancelled", "completed"):
+                progress = 100 if task.state == "completed" else self._task_progress(task)
                 core = cores.get(owner)
                 build = builds.get(owner)
                 title = core.loader + " · " + core.minecraft if kind == "core" and core else self.text("editor.mods") + " · " + build.title if kind == "mod" and build else self.text("task.minecraft.resources") if kind == "resources" else self.text('updates.task').replace('%version%', owner) if kind == 'update' else task.title
-                stage = self.text('downloads.stopped') if task.state == 'failed' else self._router.request(Request('localization', 'text', TextQuery('downloads.retrying', (('attempt', str(task.retry_count)), ('limit', str(task.retry_limit)))))) if task.state == 'retrying' else self._task_stage(task)
+                if task.state == 'failed':
+                    stage = self.text('downloads.stopped')
+                elif task.state in ('completed', 'cancelled'):
+                    stage = self.text('downloads.' + task.state)
+                elif task.state == 'retrying':
+                    stage = self._router.request(Request('localization', 'text', TextQuery('downloads.retrying', (('attempt', str(task.retry_count)), ('limit', str(task.retry_limit))))))
+                else:
+                    stage = self._task_stage(task)
                 stage_progress = int(100 * (task.stage_step + task.stage_progress) / task.stage_steps) if task.stage_progress is not None else -1
                 self._downloads.append(DownloadPreview(task_id, title, progress, kind, owner, task.state == "paused", stage, stage_progress, task.bytes_per_second, task.state, self._error_text(task.error) if task.error else '', task.can_retry))
-                if kind == "core" and task.state != 'failed':
+                if kind == "core" and task.state in ("queued", "running", "retrying", "paused", "cancelling"):
                     active[owner] = (progress, task.state == "paused", stage)
         catalogue_changed = snapshot.cores != self._projected_core_source
         if catalogue_changed:
@@ -627,6 +638,14 @@ class LiveSession(PreviewSession):
             if command.action == "edit":
                 self._scan_editor(command.key)
             return super().handle(action, payload)
+        if command.action == "dismiss_download":
+            task = self._tasks.get(command.key)
+            if task is None or task.state not in ("failed", "completed", "cancelled"):
+                return False
+            self._dismissed_tasks.add(command.key)
+            self._project()
+            self._core.app.get("tasks", TaskManager).release(command.key)
+            return True
         if command.action in ("pause_download", "cancel_download", 'retry_download'):
             tasks = self._core.app.get("tasks", TaskManager)
             task_id = next((task for task, link in self._links.items() if link == ("core", command.key) and self._tasks.get(task) and self._tasks[task].state in ("queued", "running", "retrying", "paused", "cancelling")), command.key)

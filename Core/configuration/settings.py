@@ -5,7 +5,7 @@ from Core.resources.runtime import resource_root
 
 ROOT = Path(__file__).resolve().parents[2]
 APP_NAME = "Serpantine Launcher"
-APP_VERSION = "V5.1.0-beta.1"
+APP_VERSION = "V5.1.1-beta"
 UPDATE_API_URL = 'https://api.github.com/repos/tandreyt6/serpentineLauncher/releases/latest'
 UI_DIRECTORY = resource_root("ui", ROOT / "ui")
 ASSETS_DIRECTORY = resource_root("assets", ROOT / "assets")
@@ -179,7 +179,15 @@ SHORTCUT_RESERVED = (
     "Ctrl+Backspace", "Ctrl+Del", "Ctrl+Shift+Backspace", "Ctrl+Shift+Del",
     "Alt+F4", "Alt+Tab", "Alt+Shift+Tab", "Alt+Space", "Ctrl+Esc", "Ctrl+Alt+Del", "Ctrl+Shift+Esc",
 )
+MINECRAFT_VERSION_FILTERS = (
+    ("release", "minecraftShowReleases", "minecraft.version_type.release"),
+    ("snapshot", "minecraftShowSnapshots", "minecraft.version_type.snapshot"),
+    ("old_beta", "minecraftShowBeta", "minecraft.version_type.old_beta"),
+    ("old_alpha", "minecraftShowAlpha", "minecraft.version_type.old_alpha"),
+)
+
 APPLICATION_SETTINGS = {
+    **{setting: True for category, setting, text_key in MINECRAFT_VERSION_FILTERS},
     **{"shortcut." + key: sequence for key, sequence, scopes in SHORTCUT_ACTIONS},
     "hardwareAcceleration": True,
     "panelSide": "left", "panelMode": "hover", "panelLayout": "overlay", "panelAlign": "center", "panelLabels": "text",
@@ -199,9 +207,12 @@ APPLICATION_SETTINGS = {
     "downloadRetries": str(CORE_DOWNLOAD_RETRIES),
 }
 
+INTERACTION_TIMING_SETTINGS = ("panelAnimationMs", "panelHoverCloseMs", "tooltipDelayMs")
+MAXIMUM_UI_TIMING_MS = 3000
+
 APPLICATION_SETTING_RANGES = {
     "downloadRetries": (0, 5),
-    "panelAnimationMs": (0, 1000), "panelHoverCloseMs": (0, 5000), "tooltipDelayMs": (0, 5000),
+    **dict.fromkeys(INTERACTION_TIMING_SETTINGS, (0, MAXIMUM_UI_TIMING_MS)),
     "notificationDurationMs": (500, 30000), "editorDetachDistance": (5, 300),
 }
 

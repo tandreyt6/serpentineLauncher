@@ -210,13 +210,14 @@ UG.PopupPanel {
                 required property var modelData
                 height: implicitHeight
                 objectName: "task.download." + modelData.id
-                implicitHeight: modelData.state === "failed" ? failureContent.implicitHeight : operation.implicitHeight
+                readonly property bool finished: ["failed", "cancelled", "completed"].includes(modelData.state)
+                implicitHeight: finished ? failureContent.implicitHeight : operation.implicitHeight
                 onImplicitHeightChanged: Qt.callLater(downloadsView.updateTaskLayout)
                 ColumnLayout {
                     id: failureContent
                     anchors.left: parent.left
                     anchors.right: parent.right
-                    visible: downloadRow.modelData.state === "failed"
+                    visible: downloadRow.finished
                     spacing: activity.appearance.spacing
                     RowLayout {
                         Layout.fillWidth: true
@@ -225,6 +226,7 @@ UG.PopupPanel {
                         TaskErrorIndicator {
                             objectName: "task.error." + downloadRow.modelData.id
                             tooltip: downloadRow.modelData.error
+                            visible: downloadRow.modelData.state === "failed"
                         }
                         UG.UiText {
                             tag: "ui.download.failedTitle"
@@ -234,26 +236,39 @@ UG.PopupPanel {
                             elide: Text.ElideRight
                             wrapMode: Text.NoWrap
                         }
-                        UG.Button {
+                        UG.ToolButton {
                             id: retryButton
                             tag: "ui.download.retry"
                             objectName: "task.retry." + downloadRow.modelData.id
                             enabled: downloadRow.modelData.can_retry
+                            visible: downloadRow.modelData.state === "failed"
                             textKey: "common.retry"
+                            tooltipKey: "common.retry"
+                            hideText: true
+                            iconSource: IconSources["refresh"]
                             density: "compact"
-                            implicitWidth: retryLabel.advanceWidth + 2 * appearance.controlPadding
-                            TextMetrics {
-                                id: retryLabel
-                                font: retryButton.font
-                                text: retryButton.text
-                            }
+                            implicitWidth: implicitHeight
+                            Layout.minimumWidth: implicitHeight
                             onActivated: Session.command("retry_download", downloadRow.modelData.id)
+                        }
+                        UG.ToolButton {
+                            tag: "ui.download.dismiss"
+                            objectName: "task.dismiss." + downloadRow.modelData.id
+                            textKey: "downloads.dismiss"
+                            tooltipKey: "downloads.dismiss"
+                            hideText: true
+                            iconSource: IconSources["close"]
+                            density: "compact"
+                            implicitWidth: implicitHeight
+                            Layout.minimumWidth: implicitHeight
+                            onActivated: Session.command("dismiss_download", downloadRow.modelData.id)
                         }
                     }
                     UG.UiText {
                         tag: "ui.download.stopped"
-                        textKey: "downloads.stopped"
-                        stateKey: "danger"
+                        textFromTag: false
+                        textKey: downloadRow.finished ? downloadRow.modelData.state === "failed" ? "downloads.stopped" : "downloads." + downloadRow.modelData.state : ""
+                        stateKey: downloadRow.modelData.state === "failed" ? "danger" : ""
                         typographyRole: "caption"
                         Layout.fillWidth: true
                         Layout.minimumWidth: 0
@@ -265,7 +280,7 @@ UG.PopupPanel {
                     tag: "ui.download.row"
                     width: parent.width
                     readonly property var task: downloadRow.modelData
-                    visible: task.state !== "failed"
+                    visible: !downloadRow.finished
                     expandable: false
                     paused: task.paused
                     stage: {

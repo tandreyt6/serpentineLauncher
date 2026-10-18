@@ -428,7 +428,7 @@ Item {
                     tag: "ui.tasks.button"
                     objectName: "activity.button"
                     stateKey: task && task.state === "failed" ? "danger" : "secondary"
-                    readonly property var task: Session.settings.tasksDisplay === "latest" ? Session.downloads[Session.downloads.length - 1] || null : Session.downloads.find(download => download.state !== "failed" && !download.paused) || Session.downloads[0] || null
+                    readonly property var task: Session.settings.tasksDisplay === "latest" ? Session.downloads[Session.downloads.length - 1] || null : Session.downloads.find(download => !["failed", "completed", "cancelled"].includes(download.state) && !download.paused) || Session.downloads.find(download => !["failed", "completed", "cancelled"].includes(download.state)) || Session.downloads[Session.downloads.length - 1] || null
                     property string displayedTaskId: ""
                     onTaskChanged: {
                         const key = task ? task.id : ""
@@ -443,10 +443,10 @@ Item {
                     textFromTag: false
                     displayText: {
                         Session.locale
-                        return task ? task.title + " · " + (task.state === "failed" ? Session.text("downloads.stopped") : task.state === "retrying" ? task.stage : Session.formatDownloadSpeed(task.bytes_per_second)) : Session.text("activity.open")
+                        return task ? task.title + " · " + (["failed", "completed", "cancelled", "retrying"].includes(task.state) ? task.stage : Session.formatDownloadSpeed(task.bytes_per_second)) : Session.text("activity.open")
                     }
                     useDisplayText: true
-                    showProgress: task !== null && task.state !== "failed"
+                    showProgress: task !== null && !["failed", "completed", "cancelled"].includes(task.state)
                     progress: task ? task.progress / 100 : 0
                     paused: task ? task.paused : false
                     tooltip: task ? task.error || task.stage : ""

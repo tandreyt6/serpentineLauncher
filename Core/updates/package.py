@@ -24,7 +24,7 @@ def version(value):
 
 
 def release_version(value):
-    match = re.fullmatch(r'[vV]?((?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*))(?:-(alpha|beta)\.(0|[1-9]\d*))?', value) if isinstance(value, str) else None
+    match = re.fullmatch(r'[vV]?((?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*))(?:-(alpha|beta)(?:\.(0|[1-9]\d*))?)?', value) if isinstance(value, str) else None
     if match is None:
         raise ValueError(diagnostic('updates.invalid_version'))
     return version(match[1]) + ({'alpha': 0, 'beta': 1, None: 2}[match[2]], int(match[3] or 0))

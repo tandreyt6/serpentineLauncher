@@ -146,6 +146,7 @@ class CatalogueState:
     updating: bool
     minecraft_versions: tuple[str, ...]
     errors: tuple[str, ...] = ()
+    minecraft_types: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -154,6 +155,7 @@ class CatalogueSource:
     games: tuple[str, ...] = ()
     versions: tuple[str, ...] = ()
     cores: tuple[CoreChoice, ...] = ()
+    minecraft_types: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

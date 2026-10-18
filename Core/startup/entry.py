@@ -11,10 +11,10 @@ from Core.cli.instance import InstanceDriver
 
 
 def emit_response(response: CliResponse) -> None:
-    sys.stdout.write(response.stdout)
-    sys.stderr.write(response.stderr)
-    sys.stdout.flush()
-    sys.stderr.flush()
+    for stream, text in ((sys.stdout, response.stdout), (sys.stderr, response.stderr)):
+        if stream is not None and text:
+            stream.write(text)
+            stream.flush()
 
 
 def run_gui(core: CoreRuntime, instance: InstanceDriver, preview: bool, activation: Event) -> int:
@@ -32,8 +32,10 @@ class InitialCommand:
 
     def _run(self) -> None:
         self.response = self._service.handle(self._request)
-        emit_response(self.response)
-        self.ready.set()
+        try:
+            emit_response(self.response)
+        finally:
+            self.ready.set()
 
 
 def main(request: CliRequest, instance: InstanceDriver) -> int:
@@ -81,3 +83,5 @@ def main(request: CliRequest, instance: InstanceDriver) -> int:
     finally:
         instance.close()
         core.close()
+
+

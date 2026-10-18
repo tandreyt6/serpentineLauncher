@@ -1,6 +1,7 @@
 from Core.application.diagnostics import diagnostic
 from collections.abc import Iterator
 from contextlib import closing
+from datetime import datetime, timezone
 from io import BytesIO
 import ssl
 import re
@@ -80,7 +81,11 @@ class NetworkManager:
                 raise CoreError(diagnostic('network.https.downgrade.rejected'))
             cancellation.check()
             proxy = self._proxies.get(parsed.scheme) if not proxy_bypass(parsed.hostname) else None
-            response, key, connection = self._pool.open(url, headers, cancellation, proxy=proxy)
+            try:
+                response, key, connection = self._pool.open(url, headers, cancellation, proxy=proxy)
+            except ssl.SSLCertVerificationError as error:
+                error.add_note(diagnostic('network.certificate_context', parsed.hostname, datetime.now(timezone.utc).isoformat()))
+                raise
             if 200 <= response.status < 300:
                 return response, key, connection
             location = response.getheader('Location')

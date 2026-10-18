@@ -120,3 +120,5 @@ def main(core: CoreRuntime, activation: Event) -> int:
         return application.exec()
     finally:
         controller.close()
+
+

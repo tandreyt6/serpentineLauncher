@@ -114,7 +114,7 @@ def command(source, work, options):
         '--include-qt-plugins=sensible,qml', '--include-package=universal_gui',
         '--include-module=_launcher_embedded', '--include-module=_launcher_qt_resources',
         '--include-package=Core',
-        '--windows-console-mode=attach', '--windows-icon-from-ico=' + str(work / 'icon.ico'),
+        '--windows-console-mode=hide', '--windows-icon-from-ico=' + str(work / 'icon.ico'),
         '--product-name=' + config.APP_NAME, '--file-description=' + config.APP_NAME,
         '--file-version=' + version, '--product-version=' + version,
         '--output-filename=' + EXE, '--output-dir=' + str(work / 'compiled'),
@@ -209,6 +209,8 @@ def finalize_release(distribution, work, output, versions):
         capture_output=True, text=True, timeout=60, check=True)
     if config.APP_VERSION not in result.stdout:
         raise ValueError('EXE не прошёл проверку --version: ' + result.stdout + result.stderr)
+    from Core.build.console_check import check as check_console
+    check_console(distribution / EXE, config.APP_VERSION, work)
     result = subprocess.run([str(distribution / EXE), '--verify-embedded-resources'], cwd=work,
         capture_output=True, text=True, timeout=60, check=True)
     verified = json.loads(result.stdout)

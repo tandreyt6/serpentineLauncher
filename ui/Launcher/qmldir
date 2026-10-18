@@ -12,4 +12,6 @@ ThemeBackground 1.0 ThemeBackground.qml
 LoadingIndicator 1.0 LoadingIndicator.qml
 DeferredPopup 1.0 DeferredPopup.qml
 LazyPage 1.0 LazyPage.qml
+MinecraftVersionFilters 1.0 MinecraftVersionFilters.qml
+NumberSettingField 1.0 NumberSettingField.qml
 TaskErrorIndicator 1.0 TaskErrorIndicator.qml
