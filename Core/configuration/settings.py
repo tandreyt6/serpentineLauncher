@@ -5,7 +5,7 @@ from Core.resources.runtime import resource_root
 
 ROOT = Path(__file__).resolve().parents[2]
 APP_NAME = "Serpantine Launcher"
-APP_VERSION = "V5.1.0"
+APP_VERSION = "V5.1.0-beta.1"
 UPDATE_API_URL = 'https://api.github.com/repos/tandreyt6/serpentineLauncher/releases/latest'
 UI_DIRECTORY = resource_root("ui", ROOT / "ui")
 ASSETS_DIRECTORY = resource_root("assets", ROOT / "assets")

@@ -4,7 +4,7 @@
 
 | Компонент | Версия | Источник |
 | --- | --- | --- |
-| working-universal-gui | 0.2.5+launcherfix10 | Wheel в корне репозитория, предоставлен автором UGF как отдельная зависимость |
+| working-universal-gui | 0.2.5+launcherfix12 | Wheel в корне репозитория, предоставлен автором UGF как отдельная зависимость |
 | Qt for Python / PySide6 и Shiboken6 | 6.11.0 | [Qt for Python](https://doc.qt.io/qtforpython-6/licenses.html) |
 | Pillow | 12.3.0 | [Pillow](https://github.com/python-pillow/Pillow) |
 | markdown-it-py | 4.2.0 | [markdown-it-py](https://github.com/executablebooks/markdown-it-py) |

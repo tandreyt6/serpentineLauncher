@@ -64,9 +64,7 @@ UG.PopupPanel {
         displayText: ""
         useDisplayText: true
     }
-    QC.Overlay.modal: Rectangle {
-        color: Style.value(dialog.appearance, "createBuildOverlayColor")
-    }
+    overlayColor: Style.value(dialog.appearance, "createBuildOverlayColor")
     onAboutToShow: {
         if (Session.live) {
             if (selectedLoader !== "Vanilla" && selectedMinecraft.length)

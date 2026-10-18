@@ -8,7 +8,7 @@ from contextlib import closing
 
 def run(arguments):
     import Core.configuration.settings as config
-    from PySide6.QtCore import QObject, QMetaObject, qInstallMessageHandler
+    from PySide6.QtCore import QObject, QPointF, QMetaObject, qInstallMessageHandler
     from Core.resources.runtime import embedded, copy_resource_tree
     from universal_gui.contracts import Request
     from universal_gui.pack.format import build_pack, ThemePack, PackLimits
@@ -137,9 +137,29 @@ def run(arguments):
             wait(lambda: not popup.property('popupVisible'))
             button = named('builds.create')
             phase[0] = 'create-popup'
+            before_modal = window.grabWindow()
             assert button is not None and QMetaObject.invokeMethod(button, 'clicked')
             creation = named('builds.create.loader')
             wait(lambda: creation.property('popupVisible'))
+            wait(lambda: named('ui.dialogs.createbuilddialog.1.modalSurface') is not None)
+            settled = time.monotonic() + .3
+            wait(lambda: time.monotonic() > settled)
+            modal_surface = named('ui.dialogs.createbuilddialog.1.modalSurface')
+            inset = window.property('frameInset')
+            assert modal_surface.x() == modal_surface.y() == inset
+            assert modal_surface.width() == window.width() - 2 * inset
+            assert modal_surface.height() == window.height() - 2 * inset
+            after_modal = window.grabWindow()
+            assert not before_modal.isNull() and not after_modal.isNull()
+            ratio = after_modal.width() / window.width()
+            for x, y in ((0, 0), (inset / 2, window.height() / 2), (inset, inset)):
+                point = (round(x * ratio), round(y * ratio))
+                assert before_modal.pixelColor(*point) == after_modal.pixelColor(*point), point
+            background = creation.property('item').property('background')
+            bounds = background.mapToScene(QPointF(0, 0))
+            assert bounds.x() >= inset and bounds.y() >= inset
+            assert bounds.x() + background.width() <= window.width() - inset
+            assert bounds.y() + background.height() <= window.height() - inset
             assert QMetaObject.invokeMethod(creation, 'close')
             wait(lambda: not creation.property('popupVisible'))
             phase[0] = 'build-filters'
