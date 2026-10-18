@@ -25,6 +25,7 @@ from Core.network.network import NetworkManager
 from Core.resources.runtime import embedded
 from Core.updates.package import EXECUTABLE, MAXIMUM_ARCHIVE, asset_name, extract, version, release_version, release_channel
 from Core.updates.version import UPDATER_EXECUTABLE, updater_asset_name
+from Core.updates.installation_guard import executable_path
 
 
 @dataclass(frozen=True)
@@ -62,7 +63,8 @@ class UpdateManager:
 
     @property
     def installable(self):
-        return sys.platform == 'win32' and embedded() and Path(sys.executable).name == EXECUTABLE and Path(sys.executable).resolve().parent == self._config.root.resolve()
+        executable = executable_path()
+        return sys.platform == 'win32' and embedded() and executable.name.casefold() == EXECUTABLE.casefold() and executable.parent == self._config.root.resolve()
 
     def check(self, cancellation, *, channel=None):
         channel = channel or release_channel(self._config.launcher_version)

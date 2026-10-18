@@ -197,6 +197,7 @@ APPLICATION_SETTINGS = {
     "firstRunComplete": False,
     "silentUpdates": True,
     "startupUpdatePrompt": True,
+    "skippedUpdateVersion": "",
     "delaySystemShutdown": False,
     "javaRestrictions": "default", "closeAction": "tray", "launchAction": "nothing", "finishAction": "last",
     "modDrop": True, "logMode": "normal", "zipBatch": "5", "reducedMotion": False, "theme": DEFAULT_THEME, "locale": DEFAULT_LOCALE,

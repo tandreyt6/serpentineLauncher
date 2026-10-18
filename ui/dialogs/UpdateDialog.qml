@@ -5,6 +5,7 @@ import Working.Gui as UG
 
 UG.PopupPanel {
     id: dialog
+    property bool neverAgain: false
     parent: QC.Overlay.overlay
     objectName: "updates.dialog"
     tag: "ui.updates.dialog"
@@ -15,7 +16,8 @@ UG.PopupPanel {
     modal: true
     focus: true
     closePolicy: QC.Popup.NoAutoClose
-    onClosed: Updates.dismissStartup()
+    onOpened: neverAgain = false
+    onClosed: Updates.dismissStartup(neverAgain)
     background: UG.Frame {
         tag: "ui.updates.surface"
         padding: 0
@@ -39,8 +41,6 @@ UG.PopupPanel {
             displayText: {
                 Session.revision
                 let value = Session.text("updates." + Updates.status).replace("%version%", Updates.version)
-                if (Updates.status === "available" && !Updates.installable)
-                    value += "\n\n" + Session.text("updates.source_mode")
                 if (Updates.status === "blocked")
                     value += "\n" + Updates.blockers.map(key => Session.text(key)).join("\n")
                 if (Updates.error.length)
@@ -64,8 +64,8 @@ UG.PopupPanel {
             visible: Updates.startupPrompt && Updates.status === "available"
             textKey: "updates.never_again"
             checkable: false
-            checked: !Session.settings.startupUpdatePrompt
-            onClicked: Session.command("setting", "startupUpdatePrompt", (!Session.settings.startupUpdatePrompt).toString())
+            checked: dialog.neverAgain
+            onClicked: dialog.neverAgain = !dialog.neverAgain
         }
         UG.UiText {
             tag: "ui.updates.percent"
@@ -78,7 +78,7 @@ UG.PopupPanel {
             Layout.alignment: Qt.AlignRight
             UG.Button {
                 tag: "ui.updates.later"
-                textKey: Updates.startupPrompt || Updates.status === "blocked" || Updates.status === "waiting" || Updates.status === "ready" ? "updates.later" : "common.close"
+                textKey: Updates.startupPrompt ? "updates.not_now" : Updates.status === "blocked" || Updates.status === "waiting" || Updates.status === "ready" ? "updates.later" : "common.close"
                 onActivated: {
                     if (["blocked", "waiting", "ready"].indexOf(Updates.status) >= 0)
                         Lifecycle.resolveUpdate("later")
@@ -95,7 +95,7 @@ UG.PopupPanel {
                     if (Updates.status === "blocked")
                         Lifecycle.resolveUpdate("continue")
                     else
-                        Updates.install()
+                        Updates.install(dialog.neverAgain)
                 }
             }
         }

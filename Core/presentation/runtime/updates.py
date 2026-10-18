@@ -4,6 +4,7 @@ from threading import Thread
 from PySide6.QtCore import QObject, Property, QTimer, Signal, Slot
 
 from Core.application.contracts import Cancelled
+from Core.application.application_store import ApplicationStore
 from Core.application.tasks import Cancellation, TaskManager
 from Core.updates.releases import UpdateManager, Release
 
@@ -36,7 +37,6 @@ class UpdateController(QObject):
         self._startup_seen = False
         self._startup_check = False
         self._startup_prompt = False
-        self._startup_silent = False
         self._finished.connect(self._accept)
         self._assigned.connect(self._task_assigned)
         self._timer = QTimer(self)
@@ -72,11 +72,16 @@ class UpdateController(QObject):
             self._start('check')
 
     @Slot()
-    def install(self):
+    @Slot(bool)
+    def install(self, never_again=False):
         if self._closing or self.busy or not self.installable:
             return
+        if self._startup_prompt and never_again:
+            store = self._core.app.get('application_store', ApplicationStore)
+            with store.lock:
+                store.persist(settings={**store.settings, 'startupUpdatePrompt': False})
+                store.publish()
         self._startup_prompt = False
-        self._startup_silent = False
         if self._core.app.get('updates', UpdateManager).prepared:
             self.installRequested.emit()
         elif self._release is not None:
@@ -151,7 +156,7 @@ class UpdateController(QObject):
             self._startup_prompt = startup and self._release is not None and not self._exit_mode
             self._state('available' if self._release else 'current' if result is False else 'unpublished')
             if self._exit_mode:
-                if self._release and self._exit_download:
+                if self._release and self._exit_download and self._automatic_allowed(self._release):
                     self._start('download')
                 else:
                     self._exit_mode = False
@@ -159,7 +164,7 @@ class UpdateController(QObject):
             elif self._startup_prompt:
                 self.dialogRequested.emit()
             elif self._background_mode:
-                if self._release:
+                if self._release and self._automatic_allowed(self._release):
                     self._start('download')
                 else:
                     self._background_mode = False
@@ -182,6 +187,10 @@ class UpdateController(QObject):
             self._background_mode = True
             self._start('check')
 
+    def _automatic_allowed(self, release):
+        store = self._core.app.get('application_store', ApplicationStore)
+        return store.settings['silentUpdates'] and store.settings['skippedUpdateVersion'] != release.version
+
     def startup(self, prompt=True, silent=True):
         if self._startup_seen or self._closing:
             return
@@ -194,19 +203,25 @@ class UpdateController(QObject):
             return
         if self.busy:
             return
-        self._startup_silent = silent
         self._startup_check = True
         self._start('check')
 
     @Slot()
-    def dismissStartup(self):
+    @Slot(bool)
+    def dismissStartup(self, never_again=False):
         if self._closing or not self._startup_prompt:
             return
+        if self._core is not None:
+            store = self._core.app.get('application_store', ApplicationStore)
+            with store.lock:
+                settings = {**store.settings, 'skippedUpdateVersion': self._release.version}
+                if never_again:
+                    settings['startupUpdatePrompt'] = False
+                    settings['silentUpdates'] = False
+                store.persist(settings=settings)
+                store.publish()
         self._startup_prompt = False
         self.changed.emit()
-        if self._startup_silent and self._release is not None and not self.busy:
-            self._background_mode = True
-            self._start('download')
 
     def prepare_exit(self, enabled):
         if self._core is None:
