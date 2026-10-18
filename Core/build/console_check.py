@@ -46,7 +46,7 @@ def check(executable, expected_version, directory):
         header = struct.unpack("<I", stream.read(4))[0]
         stream.seek(header + 24 + 68)
         subsystem = struct.unpack("<H", stream.read(2))[0]
-    if subsystem != 3:
+    if subsystem != 2:
         raise ValueError(dict(executable=str(executable), subsystem=subsystem))
     output = directory / "cli-console-check.json"
     startup = subprocess.STARTUPINFO()

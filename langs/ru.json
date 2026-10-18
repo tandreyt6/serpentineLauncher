@@ -533,5 +533,18 @@
   "minecraft.version_types_empty": "Нет версий выбранных типов",
   "downloads.dismiss": "Убрать из списка",
   "downloads.completed": "Задача завершена",
-  "downloads.cancelled": "Задача отменена"
+  "downloads.cancelled": "Задача отменена",
+  "updates.install.verifying": "Проверяем архив обновления…",
+  "updates.install.extracting": "Распаковываем и проверяем файлы…",
+  "updates.install.backup": "Сохраняем прежние файлы лаунчера…",
+  "updates.install.installing": "Устанавливаем файлы лаунчера…",
+  "updates.install.cleanup": "Удаляем устаревшие файлы…",
+  "updates.install.restarting": "Перезапускаем лаунчер…",
+  "updates.install.complete": "Обновление установлено",
+  "updates.install.rollback": "Восстанавливаем прежнюю версию…",
+  "updates.install.failed": "Не удалось установить обновление",
+  "updates.install.close": "Закрыть",
+  "updates.install.progress": "%percent%% · %done% / %total%",
+  "updates.install.waiting": "Ожидаем завершения лаунчера…",
+  "updates.install.percent": "%percent%%"
 }

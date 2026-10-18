@@ -406,7 +406,8 @@ class LifecycleManager(QObject):
                 updater = self._core.app.get('updates', UpdateManager)
                 if not self._system_exit and updater.prepared is not None and (self._session.settings.get('silentUpdates', True) or self.updates.deferred or self._update_requested):
                     try:
-                        plan = updater.arm(self._update_restart)
+                        plan = updater.arm(self._update_restart, show_progress=not self._background_restart,
+                            locale=self._session.settings['locale'])
                         if self._background_restart:
                             launch = self._core.app.get('launch', LaunchManager)
                             clients = launch.export_clients(updater._process.pid)

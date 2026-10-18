@@ -533,5 +533,18 @@
   "minecraft.version_types_empty": "No versions match the selected types",
   "downloads.dismiss": "Remove from list",
   "downloads.completed": "Task completed",
-  "downloads.cancelled": "Task cancelled"
+  "downloads.cancelled": "Task cancelled",
+  "updates.install.verifying": "Verifying update archive…",
+  "updates.install.extracting": "Extracting and checking files…",
+  "updates.install.backup": "Backing up the current launcher…",
+  "updates.install.installing": "Installing launcher files…",
+  "updates.install.cleanup": "Removing obsolete files…",
+  "updates.install.restarting": "Restarting the launcher…",
+  "updates.install.complete": "Update installed",
+  "updates.install.rollback": "Restoring the previous launcher…",
+  "updates.install.failed": "The update could not be installed",
+  "updates.install.close": "Close",
+  "updates.install.progress": "%percent%% · %done% / %total%",
+  "updates.install.waiting": "Waiting for the launcher to close…",
+  "updates.install.percent": "%percent%%"
 }

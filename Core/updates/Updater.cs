@@ -13,7 +13,7 @@ using System.Threading;
 using System.Web.Script.Serialization;
 using System.Windows.Forms;
 
-internal sealed class UpdateWindow : Form
+internal sealed partial class UpdateWindow : Form
 {
     internal static volatile bool Ending;
     internal static EventWaitHandle Abort;
@@ -21,7 +21,7 @@ internal sealed class UpdateWindow : Form
     internal static string Reason;
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern bool ShutdownBlockReasonCreate(IntPtr window, string reason);
     [DllImport("user32.dll")] private static extern bool ShutdownBlockReasonDestroy(IntPtr window);
-    protected override void SetVisibleCore(bool value) { base.SetVisibleCore(false); }
+    protected override void SetVisibleCore(bool value) { base.SetVisibleCore(Display && value); }
     protected override void WndProc(ref Message message)
     {
         if (message.Msg == 0x11)
@@ -65,6 +65,7 @@ internal static class Updater
     private static int Result;
     private static Dictionary<string, object> Resume;
     private static bool ParentExited;
+    private static UpdateWindow ProgressWindow;
     private static readonly List<IntPtr> ClientHandles = new List<IntPtr>();
     private static readonly List<IntPtr> JobHandles = new List<IntPtr>();
 
@@ -93,9 +94,9 @@ internal static class Updater
                 UpdateWindow.Reason = Text(config, "shutdownReason");
             }
             using (EventWaitHandle ready = EventWaitHandle.OpenExisting(Text(config, "readyEvent")))
-            using (UpdateWindow window = new UpdateWindow())
+            using (UpdateWindow window = new UpdateWindow(config))
             {
-                window.Text = "Serpentine Launcher Updater";
+                ProgressWindow = window;
                 IntPtr handle = window.Handle;
                 Thread worker = new Thread(delegate() {
                     bool background = SetThreadPriority(GetCurrentThread(), 0x10000);
@@ -104,6 +105,7 @@ internal static class Updater
                     {
                         Failed(error);
                         Result = 1;
+                        window.Failure(error);
                         if (ParentExited && Resume != null && !UpdateWindow.Ending && !GetSystemMetrics(0x2000))
                             try { StartResumed(); } catch { }
                     }
@@ -112,7 +114,7 @@ internal static class Updater
                         KeepClients();
                         foreach (IntPtr item in ClientHandles.Concat(JobHandles)) CloseHandle(item);
                         if (background) SetThreadPriority(GetCurrentThread(), 0x20000);
-                        if (!window.IsDisposed) window.BeginInvoke(new Action(Application.Exit));
+                        window.Finish();
                     }
                 });
                 worker.IsBackground = true;
@@ -144,6 +146,32 @@ internal static class Updater
         using (FileStream stream = File.OpenRead(path))
         using (SHA256 algorithm = SHA256.Create())
             return BitConverter.ToString(algorithm.ComputeHash(stream)).Replace("-", "").ToLowerInvariant();
+    }
+
+    private static void Report(string phase, int percent, long done, long total, string detail)
+    {
+        if (ProgressWindow != null) ProgressWindow.Report("updates.install." + phase, percent, done, total, detail);
+    }
+
+    private static string HashArchive(string path)
+    {
+        using (FileStream stream = File.OpenRead(path))
+        using (SHA256 algorithm = SHA256.Create())
+        {
+            byte[] buffer = new byte[262144];
+            long done = 0, total = stream.Length;
+            int read;
+            Report("verifying", 0, 0, total, Path.GetFileName(path));
+            while ((read = stream.Read(buffer, 0, buffer.Length)) != 0)
+            {
+                Check();
+                algorithm.TransformBlock(buffer, 0, read, buffer, 0);
+                done += read;
+                Report("verifying", (int)(done * 10 / Math.Max(1, total)), done, total, Path.GetFileName(path));
+            }
+            algorithm.TransformFinalBlock(buffer, 0, 0);
+            return BitConverter.ToString(algorithm.Hash).Replace("-", "").ToLowerInvariant();
+        }
     }
 
     private static string Safe(string root, string relative)
@@ -191,7 +219,7 @@ internal static class Updater
     private static Dictionary<string, object> Extract(Dictionary<string, object> config, string payload)
     {
         string archive = Path.GetFullPath(Text(config, "archive"));
-        if (new FileInfo(archive).Length != Number(config, "size") || new FileInfo(archive).Length > 1073741824 || Hash(archive) != Text(config, "sha256"))
+        if (new FileInfo(archive).Length != Number(config, "size") || new FileInfo(archive).Length > 1073741824 || HashArchive(archive) != Text(config, "sha256"))
             throw new InvalidDataException("Update archive checksum mismatch");
         using (ZipArchive zip = ZipFile.OpenRead(archive))
         {
@@ -204,6 +232,8 @@ internal static class Updater
             Dictionary<string, object> files = Validate(manifest, Text(config, "version"));
             HashSet<string> seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             if (zip.Entries.Count != files.Count + 1) throw new InvalidDataException("Unexpected archive content");
+            long totalBytes = zip.Entries.Sum(entry => entry.Length), extractedBytes = 0;
+            Report("extracting", 10, 0, totalBytes, "");
             foreach (ZipArchiveEntry entry in zip.Entries)
             {
                 Check();
@@ -230,6 +260,8 @@ internal static class Updater
                         count += read;
                         if (count > entry.Length) throw new InvalidDataException("Invalid archive content size");
                         output.Write(buffer, 0, read);
+                        extractedBytes += read;
+                        Report("extracting", 10 + (int)(extractedBytes * 35 / Math.Max(1, totalBytes)), extractedBytes, totalBytes, entry.FullName);
                     }
                     if (count != entry.Length) throw new InvalidDataException("Truncated archive entry");
                 }
@@ -264,6 +296,8 @@ internal static class Updater
             if (!String.Equals(Path.GetFullPath(parent.MainModule.FileName), launcher, StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("Unexpected launcher process");
             IntPtr parentHandle = parent.Handle;
             Check();
+            ProgressWindow.Present(config.ContainsKey("showProgress") && Object.Equals(config["showProgress"], true));
+            Report("waiting", 0, 0, 0, "");
             ready.Set();
             while (!parent.WaitForExit(100)) { AcceptClients(); Check(); }
         }
@@ -273,6 +307,9 @@ internal static class Updater
         string commitPath = Plan + ".commit";
         if (!File.Exists(commitPath)) throw new OperationCanceledException("Launcher did not authorize installation");
         Dictionary<string, object> commit = Read(commitPath);
+        bool visible = config.ContainsKey("showProgress") ? Object.Equals(config["showProgress"], true) :
+            commit.ContainsKey("restart") && Object.Equals(commit["restart"], true);
+        ProgressWindow.Present(visible && Resume == null);
         string payload = Path.Combine(Stage, "install-" + Guid.NewGuid().ToString("N"));
         Dictionary<string, object> files = Extract(config, payload);
         Check();
@@ -286,6 +323,8 @@ internal static class Updater
                 oldFiles = Validate(old, Text(old, "version"));
             }
             string[] all = files.Keys.Concat(oldFiles.Keys).Concat(new[] { Manifest }).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+            int backedUp = 0;
+            Report("backup", 45, 0, all.Length, "");
             foreach (string name in all)
             {
                 Check();
@@ -298,14 +337,22 @@ internal static class Updater
                     File.Copy(path, saved, false);
                     Existed.Add(name);
                 }
+                backedUp++;
+                Report("backup", 45 + backedUp * 15 / all.Length, backedUp, all.Length, name);
             }
             Installing = true;
-            foreach (string name in files.Keys.Where(n => n != Launcher).OrderBy(n => n).Concat(new[] { Launcher, Manifest }))
+            string[] replacements = files.Keys.Where(n => n != Launcher).OrderBy(n => n).Concat(new[] { Launcher, Manifest }).ToArray();
+            int installed = 0;
+            Report("installing", 60, 0, replacements.Length, "");
+            foreach (string name in replacements)
             {
                 Check();
                 Changed.Add(name);
                 Replace(Safe(payload, name), Safe(Target, name));
+                installed++;
+                Report("installing", 60 + installed * 35 / replacements.Length, installed, replacements.Length, name);
             }
+            Report("cleanup", 95, 0, 0, "");
             foreach (string name in oldFiles.Keys.Where(n => !files.ContainsKey(n)))
             {
                 Check();
@@ -320,6 +367,7 @@ internal static class Updater
         Check();
         if (commit.ContainsKey("restart") && Object.Equals(commit["restart"], true))
         {
+            Report("restarting", 98, 0, 0, "");
             if (Resume != null) StartResumed();
             else Process.Start(new ProcessStartInfo(launcher) { WorkingDirectory = Target, UseShellExecute = false });
         }
@@ -383,6 +431,7 @@ internal static class Updater
     {
         if (Stage == null) return;
         List<string> rollbackErrors = new List<string>();
+        if (Installing && !UpdateWindow.Ending) Report("rollback", 98, 0, Changed.Count, "");
         if (Installing && !UpdateWindow.Ending)
             foreach (string name in Changed.AsEnumerable().Reverse().Distinct())
                 try

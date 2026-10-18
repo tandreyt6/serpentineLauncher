@@ -201,7 +201,7 @@ class UpdateManager:
         if size != release.size or checksum.hexdigest() != release.sha256:
             raise ValueError(diagnostic('updates.checksum'))
 
-    def arm(self, restart):
+    def arm(self, restart, *, show_progress=True, locale=settings.DEFAULT_LOCALE):
         if not self.installable or self.prepared is None:
             raise ValueError(diagnostic('updates.source_mode'))
         with self._lock:
@@ -232,7 +232,8 @@ class UpdateManager:
             plan.write_text(json.dumps(dict(schema=2, pid=os.getpid(), target=str(self._config.root.resolve()), executable=EXECUTABLE,
                 archive=str(archive.resolve()), size=archive.stat().st_size, sha256=self.prepared.sha256 or self._archive_digest(archive),
                 version=self.prepared.version, abortEvent=self._abort_event.name, readyEvent=self._ready_event.name,
-                blockEvent=self._block_event.name, shutdownReason=self._shutdown_reason), ensure_ascii=False), encoding='utf-8')
+                blockEvent=self._block_event.name, shutdownReason=self._shutdown_reason,
+                showProgress=bool(show_progress), locale=locale), ensure_ascii=False), encoding='utf-8')
             self._process = subprocess.Popen([str(runner), '--plan', str(plan)], cwd=folder, stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                 creationflags=subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP, close_fds=True)
