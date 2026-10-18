@@ -145,6 +145,7 @@ class LauncherStartup(QObject):
         self._image_items = ()
         self._ui_signature = None
         self._ui_frames = 0
+        self._ui_frame_requested = 0.0
         self._ui_items = {}
         self.future = None
         self.started = time.monotonic()
@@ -387,6 +388,7 @@ class LauncherStartup(QObject):
         self._image_items = ()
         self._ui_signature = None
         self._ui_frames = 0
+        self._ui_frame_requested = 0.0
 
     def inspect_ui(self):
         try:
@@ -441,7 +443,18 @@ class LauncherStartup(QObject):
             if signature != self._ui_signature:
                 self._ui_signature = signature
                 self._ui_frames = 0
+                self._ui_frame_requested = 0.0
             if self._ui_frames < 2:
+                now = time.monotonic()
+                if self._ui_frame_requested and (now - self._ui_frame_requested) * 1000 >= config.STARTUP_FRAME_WAIT_MS:
+                    # A covered window may render without presenting a frame to the desktop.
+                    frames = self._ui_frames
+                    image = window.grabWindow()
+                    if not image.isNull() and self._ui_frames == frames:
+                        self._ui_frames += 1
+                    self._ui_frame_requested = now
+                elif not self._ui_frame_requested:
+                    self._ui_frame_requested = now
                 window.update()
                 return
             self.ui_timer.stop()
