@@ -42,6 +42,14 @@ Item {
                 onClicked: Session.command("setting", "silentUpdates", (!Session.settings.silentUpdates).toString())
             }
         }
+        UG.Switch {
+            tag: "ui.updates.startup_prompt"
+            objectName: "updates.startupPrompt"
+            textKey: "updates.startup_prompt"
+            checkable: false
+            checked: Session.settings.startupUpdatePrompt
+            onClicked: Session.command("setting", "startupUpdatePrompt", (!Session.settings.startupUpdatePrompt).toString())
+        }
         UG.DocumentView {
             tag: "ui.about.document"
             Layout.fillWidth: true

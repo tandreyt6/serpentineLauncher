@@ -548,5 +548,7 @@
   "updates.install.waiting": "Ожидаем завершения лаунчера…",
   "updates.install.percent": "%percent%%",
   "updates.install.waiting_files": "Ожидаем освобождения занятого файла…",
-  "updates.install.running": "Уже выполняется другое обновление лаунчера."
+  "updates.install.running": "Уже выполняется другое обновление лаунчера.",
+  "updates.startup_prompt": "Предлагать обновления при запуске",
+  "updates.never_again": "Больше не показывать"
 }

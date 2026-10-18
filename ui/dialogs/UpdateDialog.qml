@@ -9,11 +9,13 @@ UG.PopupPanel {
     objectName: "updates.dialog"
     tag: "ui.updates.dialog"
     width: Math.min(520, parent ? parent.width - 32 : 520)
-    height: contentItem.implicitHeight + topPadding + bottomPadding
+    height: Math.min(updateContent.implicitHeight + topPadding + bottomPadding,
+        parent ? parent.height - 2 * padding : updateContent.implicitHeight + topPadding + bottomPadding)
     anchors.centerIn: parent
     modal: true
     focus: true
     closePolicy: QC.Popup.NoAutoClose
+    onClosed: Updates.dismissStartup()
     background: UG.Frame {
         tag: "ui.updates.surface"
         padding: 0
@@ -21,6 +23,7 @@ UG.PopupPanel {
         useDisplayText: true
     }
     contentItem: ColumnLayout {
+        id: updateContent
         spacing: dialog.appearance.spacing
         UG.UiText {
             tag: "ui.updates.heading"
@@ -54,6 +57,16 @@ UG.PopupPanel {
             indeterminate: Updates.status !== "downloading"
             value: Updates.progress
         }
+        UG.CheckBox {
+            tag: "ui.updates.never_again"
+            objectName: "updates.neverAgain"
+            Layout.fillWidth: true
+            visible: Updates.startupPrompt && Updates.status === "available"
+            textKey: "updates.never_again"
+            checkable: false
+            checked: !Session.settings.startupUpdatePrompt
+            onClicked: Session.command("setting", "startupUpdatePrompt", (!Session.settings.startupUpdatePrompt).toString())
+        }
         UG.UiText {
             tag: "ui.updates.percent"
             Layout.alignment: Qt.AlignRight
@@ -65,7 +78,7 @@ UG.PopupPanel {
             Layout.alignment: Qt.AlignRight
             UG.Button {
                 tag: "ui.updates.later"
-                textKey: Updates.status === "blocked" || Updates.status === "waiting" || Updates.status === "ready" ? "updates.later" : "common.close"
+                textKey: Updates.startupPrompt || Updates.status === "blocked" || Updates.status === "waiting" || Updates.status === "ready" ? "updates.later" : "common.close"
                 onActivated: {
                     if (["blocked", "waiting", "ready"].indexOf(Updates.status) >= 0)
                         Lifecycle.resolveUpdate("later")

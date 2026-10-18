@@ -33,6 +33,10 @@ class UpdateController(QObject):
         self._exit_download = False
         self.deferred = False
         self._background_mode = False
+        self._startup_seen = False
+        self._startup_check = False
+        self._startup_prompt = False
+        self._startup_silent = False
         self._finished.connect(self._accept)
         self._assigned.connect(self._task_assigned)
         self._timer = QTimer(self)
@@ -44,6 +48,7 @@ class UpdateController(QObject):
     version = Property(str, lambda self: self._release.version if self._release else '', notify=changed)
     progress = Property(float, lambda self: self._progress, notify=changed)
     blockers = Property('QStringList', lambda self: self._blockers, notify=changed)
+    startupPrompt = Property(bool, lambda self: self._startup_prompt, notify=changed)
     busy = Property(bool, lambda self: self._status in ('checking', 'downloading', 'waiting'), notify=changed)
     installable = Property(bool, lambda self: self._core is not None and self._core.app.get('updates', UpdateManager).installable, constant=True)
 
@@ -53,6 +58,8 @@ class UpdateController(QObject):
 
     @Slot()
     def check(self):
+        self._startup_check = False
+        self._startup_prompt = False
         if self._closing or self.busy:
             self.dialogRequested.emit()
             return
@@ -68,6 +75,8 @@ class UpdateController(QObject):
     def install(self):
         if self._closing or self.busy or not self.installable:
             return
+        self._startup_prompt = False
+        self._startup_silent = False
         if self._core.app.get('updates', UpdateManager).prepared:
             self.installRequested.emit()
         elif self._release is not None:
@@ -102,9 +111,6 @@ class UpdateController(QObject):
                         if any(item.task_id == task and item.state in ('completed', 'cancelled', 'failed') for item in tasks.snapshots()):
                             raise
                         continue
-                if manager.installable:
-                    cancellation.check()
-                    manager.arm(False)
         except Exception as error:
             result = error
         self._finished.emit(kind, result)
@@ -131,6 +137,7 @@ class UpdateController(QObject):
         self._thread = None
         self._timer.stop()
         if isinstance(result, Exception):
+            self._startup_check = False
             self._background_mode = False
             self._state('error', str(result))
             if self._exit_mode:
@@ -139,6 +146,9 @@ class UpdateController(QObject):
                 self.exitPrepared.emit()
         elif kind == 'check':
             self._release = result if isinstance(result, Release) else None
+            startup = self._startup_check
+            self._startup_check = False
+            self._startup_prompt = startup and self._release is not None and not self._exit_mode
             self._state('available' if self._release else 'current' if result is False else 'unpublished')
             if self._exit_mode:
                 if self._release and self._exit_download:
@@ -146,6 +156,8 @@ class UpdateController(QObject):
                 else:
                     self._exit_mode = False
                     self.exitPrepared.emit()
+            elif self._startup_prompt:
+                self.dialogRequested.emit()
             elif self._background_mode:
                 if self._release:
                     self._start('download')
@@ -164,11 +176,37 @@ class UpdateController(QObject):
             self._background_mode = False
 
     def prefetch(self):
-        if self._closing or self.busy or not self.installable:
+        if self._closing or self.busy or self._startup_prompt or self._startup_check or not self.installable:
             return
         if self._core.app.get('updates', UpdateManager).prepared is None:
             self._background_mode = True
             self._start('check')
+
+    def startup(self, prompt=True, silent=True):
+        if self._startup_seen or self._closing:
+            return
+        self._startup_seen = True
+        if not self.installable:
+            return
+        if not prompt:
+            if silent:
+                self.prefetch()
+            return
+        if self.busy:
+            return
+        self._startup_silent = silent
+        self._startup_check = True
+        self._start('check')
+
+    @Slot()
+    def dismissStartup(self):
+        if self._closing or not self._startup_prompt:
+            return
+        self._startup_prompt = False
+        self.changed.emit()
+        if self._startup_silent and self._release is not None and not self.busy:
+            self._background_mode = True
+            self._start('download')
 
     def prepare_exit(self, enabled):
         if self._core is None:
@@ -204,6 +242,8 @@ class UpdateController(QObject):
             self._thread.join(15)
 
     def interrupt(self):
+        self._startup_check = False
+        self._startup_prompt = False
         self._background_mode = False
         self._exit_mode = False
         self._exit_download = False

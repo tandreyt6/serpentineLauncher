@@ -548,5 +548,7 @@
   "updates.install.waiting": "Waiting for the launcher to close…",
   "updates.install.percent": "%percent%%",
   "updates.install.waiting_files": "Waiting for a file to be released…",
-  "updates.install.running": "Another launcher update is already running."
+  "updates.install.running": "Another launcher update is already running.",
+  "updates.startup_prompt": "Offer available updates at startup",
+  "updates.never_again": "Do not show again"
 }

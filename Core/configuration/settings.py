@@ -196,6 +196,7 @@ APPLICATION_SETTINGS = {
     "javaPath": "", "javaVersion": "auto", "memoryMin": "512", "memoryMax": "2048", "jvmArgs": "",
     "firstRunComplete": False,
     "silentUpdates": True,
+    "startupUpdatePrompt": True,
     "delaySystemShutdown": False,
     "javaRestrictions": "default", "closeAction": "tray", "launchAction": "nothing", "finishAction": "last",
     "modDrop": True, "logMode": "normal", "zipBatch": "5", "reducedMotion": False, "theme": DEFAULT_THEME, "locale": DEFAULT_LOCALE,

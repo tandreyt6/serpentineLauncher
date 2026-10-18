@@ -94,8 +94,18 @@ class LifecycleManager(QObject):
                 self._session.settings.get('delaySystemShutdown', False), self._session.text('settings.shutdown_reason'))
 
     def _prefetch_update(self):
-        if not self._stopping and not self._system_exit and self._session.settings.get('silentUpdates', True):
-            self.updates.prefetch()
+        if self._stopping or self._system_exit:
+            return
+        startup = self._session._router._departments.get('launcher_startup')
+        if startup is not None and startup.phase != 'shown':
+            self._prefetch_timer.start(200)
+            return
+        from Core.updates import resume
+        if resume.state is not None:
+            if self._session.settings['silentUpdates']:
+                self.updates.prefetch()
+        else:
+            self.updates.startup(self._session.settings['startupUpdatePrompt'], self._session.settings['silentUpdates'])
 
     def _background_ready(self):
         self._background_update_pending = True
@@ -196,7 +206,7 @@ class LifecycleManager(QObject):
         if watched is self._window and event.type() == QEvent.Type.Close and not self._stopping:
             event.ignore()
             updater = self._core.app.get('updates', UpdateManager) if self._core is not None else None
-            if updater is not None and updater.armed and (self._session.settings.get('silentUpdates', True) or self.updates.deferred):
+            if updater is not None and updater.prepared is not None and (self._session.settings.get('silentUpdates', True) or self.updates.deferred):
                 self._update_restart = False
                 self._request_update() if self._update_blockers() else self.requestExit()
             elif self._session.settings["closeAction"] == "exit" and self._editors is not None and self._editors.windowKeys:
