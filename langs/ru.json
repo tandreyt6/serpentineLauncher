@@ -546,5 +546,7 @@
   "updates.install.close": "Закрыть",
   "updates.install.progress": "%percent%% · %done% / %total%",
   "updates.install.waiting": "Ожидаем завершения лаунчера…",
-  "updates.install.percent": "%percent%%"
+  "updates.install.percent": "%percent%%",
+  "updates.install.waiting_files": "Ожидаем освобождения занятого файла…",
+  "updates.install.running": "Уже выполняется другое обновление лаунчера."
 }

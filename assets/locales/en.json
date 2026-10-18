@@ -546,5 +546,7 @@
   "updates.install.close": "Close",
   "updates.install.progress": "%percent%% · %done% / %total%",
   "updates.install.waiting": "Waiting for the launcher to close…",
-  "updates.install.percent": "%percent%%"
+  "updates.install.percent": "%percent%%",
+  "updates.install.waiting_files": "Waiting for a file to be released…",
+  "updates.install.running": "Another launcher update is already running."
 }

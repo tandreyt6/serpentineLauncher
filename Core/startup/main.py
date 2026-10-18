@@ -1,11 +1,13 @@
 import sys
 
-from Core.cli.arguments import parse_arguments
-from Core.cli.instance import InstanceDriver
-
 def main() -> int:
+    from Core.updates.installation_guard import updating
+    if updating():
+        return 0
     from Core.cli.console import initialize as initialize_console
     initialize_console()
+    from Core.cli.arguments import parse_arguments
+    from Core.cli.instance import InstanceDriver
     if sys.argv[1:2] == ['--diagnose-network']:
         from Core.cli.network_probe import run
         return run(sys.argv[2:])

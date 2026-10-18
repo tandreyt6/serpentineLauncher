@@ -54,6 +54,13 @@ internal sealed partial class UpdateWindow
 
     protected override bool ShowWithoutActivation { get { return true; } }
 
+    internal string Message(string key) { return Messages[key]; }
+
+    internal void WaitingForFile(string detail)
+    {
+        Report("updates.install.waiting_files", Math.Max(0, LastPercent), 0, 0, detail);
+    }
+
     internal void Present(bool visible)
     {
         if (!visible) return;
@@ -75,7 +82,7 @@ internal sealed partial class UpdateWindow
         if (IsDisposed || !IsHandleCreated) return;
         BeginInvoke(new Action(delegate {
             Phase.Text = Messages[key];
-            Progress.Style = key == "updates.install.waiting" ? ProgressBarStyle.Marquee : ProgressBarStyle.Continuous;
+            Progress.Style = key == "updates.install.waiting" || key == "updates.install.waiting_files" ? ProgressBarStyle.Marquee : ProgressBarStyle.Continuous;
             Progress.Value = percent;
             Count.Text = (total > 0 ? Messages["updates.install.progress"] : Messages["updates.install.percent"]).Replace("%percent%", percent.ToString())
                 .Replace("%done%", done.ToString()).Replace("%total%", total.ToString());

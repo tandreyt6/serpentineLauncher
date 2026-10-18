@@ -66,6 +66,8 @@ internal static class Updater
     private static Dictionary<string, object> Resume;
     private static bool ParentExited;
     private static UpdateWindow ProgressWindow;
+    private static Mutex InstallationLock;
+    private static bool InstallationLockHeld;
     private static readonly List<IntPtr> ClientHandles = new List<IntPtr>();
     private static readonly List<IntPtr> JobHandles = new List<IntPtr>();
 
@@ -104,6 +106,7 @@ internal static class Updater
                     catch (Exception error)
                     {
                         Failed(error);
+                        ReleaseInstallationLock();
                         Result = 1;
                         window.Failure(error);
                         if (ParentExited && Resume != null && !UpdateWindow.Ending && !GetSystemMetrics(0x2000))
@@ -111,6 +114,7 @@ internal static class Updater
                     }
                     finally
                     {
+                        ReleaseInstallationLock();
                         KeepClients();
                         foreach (IntPtr item in ClientHandles.Concat(JobHandles)) CloseHandle(item);
                         if (background) SetThreadPriority(GetCurrentThread(), 0x20000);
@@ -151,6 +155,43 @@ internal static class Updater
     private static void Report(string phase, int percent, long done, long total, string detail)
     {
         if (ProgressWindow != null) ProgressWindow.Report("updates.install." + phase, percent, done, total, detail);
+    }
+
+    private static void AcquireInstallationLock()
+    {
+        string name;
+        using (SHA256 algorithm = SHA256.Create())
+            name = "Local\\SerpentineInstall-" + BitConverter.ToString(algorithm.ComputeHash(Encoding.UTF8.GetBytes(Target.ToLowerInvariant()))).Replace("-", "").ToLowerInvariant();
+        InstallationLock = new Mutex(false, name);
+        try { InstallationLockHeld = InstallationLock.WaitOne(0); }
+        catch (AbandonedMutexException) { InstallationLockHeld = true; }
+        if (!InstallationLockHeld) throw new IOException(ProgressWindow.Message("updates.install.running"));
+    }
+
+    private static void ReleaseInstallationLock()
+    {
+        if (InstallationLockHeld)
+        {
+            InstallationLock.ReleaseMutex();
+            InstallationLockHeld = false;
+        }
+        if (InstallationLock != null) { InstallationLock.Dispose(); InstallationLock = null; }
+    }
+
+    private static void RetryFileOperation(Action operation, string detail)
+    {
+        while (true)
+        {
+            Check();
+            try { operation(); return; }
+            catch (IOException error)
+            {
+                int code = Marshal.GetHRForException(error) & 0xffff;
+                if (code != 32 && code != 33) throw;
+                ProgressWindow.WaitingForFile(detail);
+                Thread.Sleep(100);
+            }
+        }
     }
 
     private static string HashArchive(string path)
@@ -279,8 +320,10 @@ internal static class Updater
         {
             File.Copy(source, temporary, false);
             Check();
-            if (File.Exists(target)) File.Replace(temporary, target, null);
-            else File.Move(temporary, target);
+            RetryFileOperation(delegate {
+                if (File.Exists(target)) File.Replace(temporary, target, null);
+                else File.Move(temporary, target);
+            }, Path.GetFileName(target));
         }
         finally { if (File.Exists(temporary)) File.Delete(temporary); }
     }
@@ -289,6 +332,7 @@ internal static class Updater
     {
         Target = Path.GetFullPath(Text(config, "target")).TrimEnd(Path.DirectorySeparatorChar);
         if (!Directory.Exists(Target) || Target == Path.GetPathRoot(Target).TrimEnd(Path.DirectorySeparatorChar)) throw new InvalidDataException("Invalid installation directory");
+        AcquireInstallationLock();
         string launcher = Safe(Target, Launcher);
         Process parent = Process.GetProcessById((int)Number(config, "pid"));
         using (parent)
@@ -334,7 +378,7 @@ internal static class Updater
                 {
                     string saved = Safe(Path.Combine(Stage, "backup"), name);
                     Directory.CreateDirectory(Path.GetDirectoryName(saved));
-                    File.Copy(path, saved, false);
+                    RetryFileOperation(delegate { File.Copy(path, saved, true); }, name);
                     Existed.Add(name);
                 }
                 backedUp++;
@@ -358,12 +402,13 @@ internal static class Updater
                 Check();
                 Changed.Add(name);
                 string path = Safe(Target, name);
-                if (File.Exists(path)) File.Delete(path);
+                if (File.Exists(path)) RetryFileOperation(delegate { File.Delete(path); }, name);
             }
             Check();
             File.WriteAllText(Path.Combine(Stage, "result.json"), Json.Serialize(new { status = "installed", version = config["version"], target = Target }));
             Installing = false;
         }
+        ReleaseInstallationLock();
         Check();
         if (commit.ContainsKey("restart") && Object.Equals(commit["restart"], true))
         {
